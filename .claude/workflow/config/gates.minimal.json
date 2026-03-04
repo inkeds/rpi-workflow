@@ -1,0 +1,37 @@
+{
+  "phase_gates": {
+    "M0": ["bootstrap_check"],
+    "M1": ["bootstrap_check"],
+    "M2": ["bootstrap_check"]
+  },
+  "commands": {
+    "bootstrap_check": "bash .claude/workflow/rpi.sh check bootstrap"
+  },
+  "verify": {
+    "default": [
+      {
+        "name": "discovery_complete",
+        "command": "bash .claude/workflow/rpi.sh check discovery --quiet"
+      },
+      {
+        "name": "contract_spec_complete",
+        "command": "bash .claude/workflow/rpi.sh check contract --quiet"
+      },
+      {
+        "name": "scope_guard_passed",
+        "command": "bash .claude/workflow/rpi.sh check scope --quiet"
+      },
+      {
+        "name": "spec_state_valid",
+        "command": "bash .claude/workflow/rpi.sh spec verify --scope all --quiet"
+      },
+      {
+        "name": "architecture_guard_passed",
+        "command": "bash .claude/workflow/rpi.sh check architecture --quiet"
+      }
+    ],
+    "M0": [],
+    "M1": [],
+    "M2": []
+  }
+}

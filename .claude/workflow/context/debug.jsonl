@@ -1,0 +1,4 @@
+{"file":".rpi-outfile/specs/00_master_spec.md","reason":"fact source for debugging"}
+{"file":".rpi-outfile/specs/l0/discovery.md","reason":"debug within agreed mvp boundary"}
+{"file":".rpi-outfile/specs/l0/spec.md","reason":"contract boundary for root cause"}
+{"file":".rpi-outfile/specs/l0/tasks.md","reason":"expected behavior for regression"}

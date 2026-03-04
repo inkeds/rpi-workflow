@@ -1,0 +1,4 @@
+{"file":".rpi-outfile/specs/l0/ux-spec.md","reason":"UX interaction standards and forbidden behaviors"}
+{"file":".rpi-outfile/specs/l0/reference-module.md","reason":"benchmark module for consistent UX implementation"}
+{"file":".rpi-outfile/specs/l0/module-linkage.md","reason":"cross-module data flow and linkage rules"}
+{"file":".rpi-outfile/specs/l0/ux-flow.md","reason":"global UX business flow specification"}

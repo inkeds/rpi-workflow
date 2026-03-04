@@ -1,0 +1,15 @@
+{
+  "version": "2.0",
+  "enabled": true,
+  "include_extensions": ["sh"],
+  "rules": [
+    {
+      "id": "hooks-source-allowlist",
+      "type": "source_allowlist",
+      "from": [".claude/hooks"],
+      "allow": [],
+      "severity": "error",
+      "message": "Hook scripts must not source local shell helper files."
+    }
+  ]
+}

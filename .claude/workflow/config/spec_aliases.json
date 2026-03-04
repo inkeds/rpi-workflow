@@ -1,0 +1,80 @@
+{
+  "fields": {
+    "goal": [
+      "目标",
+      "Goal",
+      "Objective"
+    ],
+    "target_user": [
+      "目标用户",
+      "Target User",
+      "User Persona"
+    ],
+    "high_freq_scenario": [
+      "高频使用场景",
+      "High-Frequency Scenario",
+      "Primary Scenario"
+    ],
+    "time_window": [
+      "时间窗口",
+      "Time Window"
+    ],
+    "direction": [
+      "选择方向",
+      "Direction"
+    ],
+    "coverage_target": [
+      "覆盖率目标",
+      "Coverage Target",
+      "Coverage"
+    ],
+    "weighted_coverage_target": [
+      "加权覆盖率目标",
+      "Weighted Coverage Target",
+      "Weighted Coverage"
+    ],
+    "m0_must": [
+      "M0 Must（1-3）",
+      "M0 Must (1-3)",
+      "M0 Must"
+    ],
+    "m0_wont": [
+      "M0 Won't（>=3）",
+      "M0 Won't (>=3)",
+      "M0 Wont (>=3)",
+      "M0 Won't"
+    ],
+    "ubiquitous_language": [
+      "统一语言（Ubiquitous Language）",
+      "统一语言",
+      "Ubiquitous Language"
+    ],
+    "bounded_contexts": [
+      "限界上下文（Bounded Context）",
+      "限界上下文",
+      "Bounded Context"
+    ],
+    "domain_invariants": [
+      "业务不变量（Domain Invariants）",
+      "业务不变量",
+      "Domain Invariants"
+    ],
+    "m0_contexts": [
+      "已选上下文（M0）",
+      "已选上下文",
+      "M0 Contexts",
+      "Selected Contexts (M0)"
+    ],
+    "priority_overrides": [
+      "优先级调权",
+      "优先级调权（可选）",
+      "Priority Overrides",
+      "Feature Weight Overrides"
+    ],
+    "success_metrics": [
+      "成功指标（2-4）",
+      "Success Metrics (2-4)",
+      "Success Metrics"
+    ]
+  }
+}

@@ -1,0 +1,3 @@
+{"file":".rpi-outfile/specs/l0/module-linkage.md","reason":"module boundary, linkage rules, data flow"}
+{"file":".rpi-outfile/specs/l0/ux-flow.md","reason":"global UX business flow across modules"}
+{"file":".rpi-outfile/specs/l0/reference-module.md","reason":"benchmark module for consistent implementation"}

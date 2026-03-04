@@ -1,0 +1,64 @@
+{
+  "phase_gates": {
+    "M0": [
+      "unit_tests",
+      "integration_tests",
+      "linkage_tests",
+      "lint"
+    ],
+    "M1": [
+      "unit_tests",
+      "integration_tests",
+      "linkage_tests",
+      "contract_tests",
+      "lint",
+      "typecheck"
+    ],
+    "M2": [
+      "unit_tests",
+      "integration_tests",
+      "linkage_tests",
+      "e2e_tests",
+      "lint",
+      "typecheck",
+      "security_scan"
+    ]
+  },
+  "commands": {
+    "unit_tests": "npm test",
+    "integration_tests": "npm run test:integration",
+    "linkage_tests": "npm run test:linkage",
+    "contract_tests": "npm run test:contract",
+    "e2e_tests": "npm run test:e2e",
+    "lint": "npm run lint",
+    "typecheck": "npm run typecheck",
+    "security_scan": "npm audit"
+  },
+  "verify": {
+    "default": [
+      {
+        "name": "discovery_complete",
+        "command": "bash .claude/workflow/rpi.sh check discovery --quiet"
+      },
+      {
+        "name": "spec_state_valid",
+        "command": "bash .claude/workflow/rpi.sh spec verify --scope all --quiet"
+      },
+      {
+        "name": "architecture_guard_passed",
+        "command": "bash .claude/workflow/rpi.sh check architecture --quiet"
+      },
+      {
+        "name": "skeleton_complete",
+        "command": "test -f .rpi-outfile/specs/l0/module-linkage.md"
+      },
+      {
+        "name": "linkage_integrity_check",
+        "command": "bash .claude/workflow/rpi.sh check linkage --quiet"
+      }
+    ],
+    "M0": [],
+    "M1": [],
+    "M2": []
+  }
+}

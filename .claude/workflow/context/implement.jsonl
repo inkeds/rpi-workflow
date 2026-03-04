@@ -1,0 +1,6 @@
+{"file":".rpi-outfile/specs/00_master_spec.md","reason":"single source of truth"}
+{"file":".rpi-outfile/specs/l0/discovery.md","reason":"project direction and mvp boundary"}
+{"file":".rpi-outfile/specs/l0/epic.md","reason":"mvp boundary and value"}
+{"file":".rpi-outfile/specs/l0/spec.md","reason":"architecture and contracts"}
+{"file":".rpi-outfile/specs/l0/tasks.md","reason":"task acceptance criteria"}
+{"file":".rpi-outfile/specs/phases/m0.md","reason":"phase-specific guardrails"}

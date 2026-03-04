@@ -1,0 +1,4 @@
+{"file":".rpi-outfile/specs/00_master_spec.md","reason":"traceability source"}
+{"file":".rpi-outfile/specs/l0/discovery.md","reason":"validate against agreed mvp scope"}
+{"file":".rpi-outfile/specs/l0/tasks.md","reason":"acceptance criteria baseline"}
+{"file":".rpi-outfile/specs/l2/engineering-guardrails.md","reason":"quality and safety constraints"}

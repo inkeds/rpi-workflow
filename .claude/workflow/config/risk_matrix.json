@@ -1,0 +1,141 @@
+{
+  "version": "2.0",
+  "enabled": true,
+  "default_profile": "dev",
+  "profiles": {
+    "dev": {
+      "description": "Developer branch policy (fast iteration)",
+      "decision_overrides": {
+        "R2": "allow",
+        "R3": "ask"
+      },
+      "force_approval_levels": []
+    },
+    "staging": {
+      "description": "Staging/UAT policy",
+      "decision_overrides": {
+        "R2": "ask",
+        "R3": "deny"
+      },
+      "force_approval_levels": [
+        "R2",
+        "R3"
+      ]
+    },
+    "prod": {
+      "description": "Production policy",
+      "decision_overrides": {
+        "R1": "ask",
+        "R2": "ask",
+        "R3": "deny"
+      },
+      "force_approval_levels": [
+        "R2",
+        "R3"
+      ]
+    }
+  },
+  "selectors": {
+    "branch": [
+      {
+        "pattern": "^(main|master|release/|hotfix/)",
+        "profile": "prod"
+      },
+      {
+        "pattern": "^(staging|preprod|uat)(/|$)",
+        "profile": "staging"
+      }
+    ],
+    "path": [
+      {
+        "pattern": "(^|/)(infra|deploy|terraform|k8s|helm|migrations)(/|$)",
+        "profile": "prod"
+      },
+      {
+        "pattern": "(^|/)(ops|scripts/release)(/|$)",
+        "profile": "staging"
+      }
+    ],
+    "command": [
+      {
+        "pattern": "(kubectl|terraform|helm|flyway|alembic|prisma[[:space:]]+migrate|npm[[:space:]]+publish|docker[[:space:]]+push)",
+        "profile": "prod"
+      },
+      {
+        "pattern": "(deploy|release)",
+        "profile": "staging"
+      }
+    ]
+  },
+  "default": {
+    "level": "R0",
+    "decision": "allow",
+    "reason": "No high-risk pattern matched"
+  },
+  "rules": [
+    {
+      "id": "bash-git-reset-hard",
+      "tool": "Bash",
+      "pattern": "(^|[[:space:]])git[[:space:]]+reset[[:space:]]+--hard([[:space:]]|$)",
+      "level": "R3",
+      "decision": "deny",
+      "reason": "Destructive git history rewrite is blocked by risk policy."
+    },
+    {
+      "id": "bash-rm-rf-rootlike",
+      "tool": "Bash",
+      "pattern": "(^|[[:space:]])rm[[:space:]]+-rf([[:space:]]|$)",
+      "level": "R3",
+      "decision": "deny",
+      "reason": "Potentially destructive recursive delete is blocked by risk policy."
+    },
+    {
+      "id": "bash-infra-destroy",
+      "tool": "Bash",
+      "pattern": "(kubectl[[:space:]]+delete|terraform[[:space:]]+destroy|helm[[:space:]]+uninstall)",
+      "level": "R3",
+      "decision": "deny",
+      "reason": "Destructive infrastructure command is blocked in this workflow."
+    },
+    {
+      "id": "bash-infra-apply",
+      "tool": "Bash",
+      "pattern": "(kubectl[[:space:]]+apply|terraform[[:space:]]+apply|helm[[:space:]]+upgrade)",
+      "level": "R2",
+      "decision": "ask",
+      "reason": "Infrastructure mutation requires human confirmation and rollback plan."
+    },
+    {
+      "id": "bash-db-migration",
+      "tool": "Bash",
+      "pattern": "(alembic[[:space:]]+upgrade|rails[[:space:]]+db:migrate|prisma[[:space:]]+migrate|flyway[[:space:]])",
+      "level": "R2",
+      "decision": "ask",
+      "reason": "Schema migration command requires human confirmation."
+    },
+    {
+      "id": "bash-release-publish",
+      "tool": "Bash",
+      "pattern": "(npm[[:space:]]+publish|gh[[:space:]]+release[[:space:]]+create|docker[[:space:]]+push)",
+      "level": "R2",
+      "decision": "ask",
+      "reason": "Release/publish command requires human confirmation."
+    },
+    {
+      "id": "edit-secrets-files",
+      "tool": "Edit",
+      "pattern": "(^|/)(\\.env(\\.|$)|secrets?(/|\\.|$)|credentials?(/|\\.|$))",
+      "level": "R3",
+      "decision": "deny",
+      "reason": "Direct secret material editing is blocked by risk policy."
+    },
+    {
+      "id": "edit-prod-infra-path",
+      "tool": "Edit",
+      "pattern": "(^|/)(\\.github/workflows|k8s|helm|terraform|infra|deploy|migrations)(/|$)",
+      "level": "R2",
+      "decision": "ask",
+      "reason": "Editing deployment/infrastructure paths requires human confirmation."
+    }
+  ]
+}

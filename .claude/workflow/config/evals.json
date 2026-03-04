@@ -1,0 +1,172 @@
+{
+  "suites": {
+    "capability": [
+      {
+        "name": "profile_show",
+        "command": "bash .claude/workflow/rpi.sh mode profile show >/dev/null"
+      },
+      {
+        "name": "compressed_check_default_full",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; cp README.md prd.md CLAUDE.md \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Compressed check full' Web >/dev/null && bash .claude/workflow/rpi.sh check >/dev/null)"
+      },
+      {
+        "name": "compressed_init_deepen_semantics",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Compressed deepen' Web >/dev/null && bash .claude/workflow/rpi.sh init deepen >/dev/null && grep -q 'deepen: idea=' .rpi-outfile/specs/l0/mvp-skeleton.md && test -f .rpi-outfile/state/init_summary.json)"
+      },
+      {
+        "name": "compressed_spec_expand_semantics",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Compressed expand' Web >/dev/null && bash .claude/workflow/rpi.sh spec expand \"确认方向B，Must链路L1,L2,L3，Won't链路L4，加权覆盖率目标85%\" >/dev/null && grep -q '选择方向：B' .rpi-outfile/specs/l0/discovery.md && grep -q '覆盖率目标：P0 >= 80%' .rpi-outfile/specs/l0/discovery.md && grep -q '加权覆盖率目标：85%' .rpi-outfile/specs/l0/discovery.md && grep -q 'M0 Must（1-3）：L1, L2, L3' .rpi-outfile/specs/l0/discovery.md)"
+      },
+      {
+        "name": "harness_toggle_bundle",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Harness toggle bundle' Web >/dev/null && bash .claude/workflow/rpi.sh mode harness off >/dev/null && jq -e '.harness_enabled == false and .architecture_enforce == false and .spec_link_enforce == false and .gates_auto_retry_enabled == false' .claude/workflow/config/runtime.json >/dev/null && bash .claude/workflow/rpi.sh mode harness on >/dev/null && jq -e '.harness_enabled == true and .architecture_enforce == true and .spec_link_enforce == true and .gates_auto_retry_enabled == true' .claude/workflow/config/runtime.json >/dev/null)"
+      },
+      {
+        "name": "bootstrap_full_seed",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap \"Bootstrap 验证项目\" \"Web\" >/dev/null && bash .claude/workflow/rpi.sh check artifact --json | jq -e '.applyReady == true and (.artifacts[] | select(.id==\"epic\") | .status == \"done\") and (.artifacts[] | select(.id==\"milestones\") | .status == \"done\")' >/dev/null && bash .claude/workflow/rpi.sh gates run M0 >/dev/null)"
+      },
+      {
+        "name": "gates_auto_retry_smoke",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Gate retry smoke' Web >/dev/null && bash .claude/workflow/rpi.sh gates run M0 >/dev/null && jq -s 'map(select(.event==\"quality_gate_auto\")) | length >= 1' .rpi-outfile/logs/events.jsonl >/dev/null)"
+      },
+      {
+        "name": "bootstrap_force_overwrite",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap \"Force 覆盖验证\" \"Web\" >/dev/null && mkdir -p .rpi-outfile/specs/l0 && printf '# L0 Spec\\n\\n## 架构边界\\n- Out of Scope：\\n  - 占位\\n' > .rpi-outfile/specs/l0/spec.md && bash .claude/workflow/rpi.sh init bootstrap --force \"Force 覆盖验证\" \"Web\" >/dev/null && bash .claude/workflow/rpi.sh check contract --quiet && grep -q '## 数据模型' .rpi-outfile/specs/l0/spec.md && grep -q 'Force 覆盖验证' .rpi-outfile/specs/l0/discovery.md)"
+      },
+      {
+        "name": "spec_state_pipeline",
+        "command": "bash .claude/workflow/rpi.sh spec build --quiet && bash .claude/workflow/rpi.sh spec verify --scope all --quiet"
+      },
+      {
+        "name": "spec_link_graph",
+        "command": "bash .claude/workflow/rpi.sh spec link --quiet"
+      },
+      {
+        "name": "check_ux_command_smoke",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'UX check smoke' Web >/dev/null && cp .rpi-blueprint/specs/l0/ux-spec.template.md .rpi-outfile/specs/l0/ux-spec.md && bash .claude/workflow/rpi.sh check ux --quiet)"
+      },
+      {
+        "name": "check_linkage_command_smoke",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Linkage check smoke' Web >/dev/null && bash .claude/workflow/rpi.sh check skeleton-init --frontend >/dev/null && bash .claude/workflow/rpi.sh check linkage --quiet)"
+      },
+      {
+        "name": "check_skeleton_command_smoke",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Skeleton check smoke' Web >/dev/null && bash .claude/workflow/rpi.sh check skeleton-init --frontend >/dev/null && bash .claude/workflow/rpi.sh check skeleton --quiet)"
+      },
+      {
+        "name": "architecture_rules_check",
+        "command": "bash .claude/workflow/rpi.sh check architecture --require-rules --quiet"
+      },
+      {
+        "name": "risk_profile_arg_override",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Risk profile arg override' Web >/dev/null && bash .claude/workflow/rpi.sh mode harness on >/dev/null && bash .claude/workflow/rpi.sh check risk --tool Bash --value 'terraform apply -auto-approve' --profile dev --json | jq -e '.profile == \"dev\" and .profile_source == \"arg\" and .decision == \"allow\"' >/dev/null)"
+      },
+      {
+        "name": "risk_profile_selector_command",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Risk profile selector command' Web >/dev/null && bash .claude/workflow/rpi.sh mode harness on >/dev/null && bash .claude/workflow/rpi.sh check risk --tool Bash --value 'terraform apply -auto-approve' --json | jq -e '.profile == \"prod\" and (.profile_source | startswith(\"command:\")) and .decision == \"ask\"' >/dev/null)"
+      },
+      {
+        "name": "risk_profile_runtime_override",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Risk profile runtime override' Web >/dev/null && jq '.risk_profile_override = \"staging\"' .claude/workflow/config/runtime.json > .claude/workflow/config/runtime.json.tmp && mv .claude/workflow/config/runtime.json.tmp .claude/workflow/config/runtime.json && bash .claude/workflow/rpi.sh check risk --tool Bash --value 'echo hello' --json | jq -e '.profile == \"staging\" and .profile_source == \"runtime\" and .decision == \"allow\"' >/dev/null)"
+      },
+      {
+        "name": "anti_entropy_strict",
+        "command": "bash .claude/workflow/rpi.sh auto entropy --strict >/dev/null"
+      },
+      {
+        "name": "agent_memory_update_smoke",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Agent memory update smoke' Web >/dev/null && bash .claude/workflow/rpi.sh auto memory --task TASK-EVAL --result fail --root-cause spec_missing --note 'eval memory' --force >/dev/null && test -f AGENTS.md && grep -q '## Learned Guards' AGENTS.md && grep -q 'task_id: TASK-EVAL' AGENTS.md)"
+      },
+      {
+        "name": "audit_pack_export",
+        "command": "bash .claude/workflow/rpi.sh observe audit-pack --task TASK-EVAL >/dev/null"
+      },
+      {
+        "name": "audit_report_json_smoke",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Audit report smoke' Web >/dev/null && bash .claude/workflow/rpi.sh observe audit-report --days 7 --json | jq -e '.generated_at != null and .task_metrics.tasks_total >= 0 and .gate_metrics.gate_failures_total >= 0' >/dev/null)"
+      },
+      {
+        "name": "a2a_review_json_smoke",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && git init >/dev/null && git config user.email eval@example.com && git config user.name eval-bot && bash .claude/workflow/rpi.sh init bootstrap 'A2A smoke' Web >/dev/null && git add -A && git commit -m init >/dev/null && printf '\\n<!-- eval -->\\n' >> .claude/workflow/config/runtime.example.md && bash .claude/workflow/rpi.sh auto review --json | jq -e '.approved == true and .non_core_change == true and (.checks | length) >= 4' >/dev/null)"
+      }
+    ],
+    "regression": [
+      {
+        "name": "shell_syntax_all",
+        "command": "bash -n .claude/workflow/rpi.sh && find .claude/hooks -maxdepth 1 -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n"
+      },
+      {
+        "name": "pre_tool_use_core_engine_smoke",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && PYBIN=$(command -v python3 || command -v python) && test -n \"$PYBIN\" && bash .claude/workflow/rpi.sh init bootstrap 'PreToolUse smoke' Web >/dev/null && printf '{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"src/app.ts\"}}' | \"$PYBIN\" .claude/workflow/engine/pre_tool_use_core.py --project-dir \"$tmp\" | jq -e '.hookSpecificOutput.permissionDecision == \"deny\"' >/dev/null && test -z \"$(printf '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"python --version\"}}' | \"$PYBIN\" .claude/workflow/engine/pre_tool_use_core.py --project-dir \"$tmp\")\")"
+      },
+      {
+        "name": "session_start_schema_safe",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && PYBIN=$(command -v python3 || command -v python) && test -n \"$PYBIN\" && printf '{}' | \"$PYBIN\" .claude/workflow/engine/session_start_core.py --project-dir \"$tmp\" | jq -e '.systemMessage != null and (.hookSpecificOutput | not)' >/dev/null)"
+      },
+      {
+        "name": "stop_hook_schema_safe",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && PYBIN=$(command -v python3 || command -v python) && test -n \"$PYBIN\" && bash .claude/workflow/rpi.sh init bootstrap 'Stop schema smoke' Web >/dev/null && bash .claude/workflow/rpi.sh task start 001 >/dev/null && printf '{}' | \"$PYBIN\" .claude/workflow/engine/stop_gate_core.py --project-dir \"$tmp\" | jq -e '.decision == \"block\" and .reason != null and (.hookSpecificOutput | not)' >/dev/null)"
+      },
+      {
+        "name": "post_tool_use_autonomy_counter",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && PYBIN=$(command -v python3 || command -v python) && test -n \"$PYBIN\" && bash .claude/workflow/rpi.sh init bootstrap 'Autonomy counter smoke' Web >/dev/null && bash .claude/workflow/rpi.sh task start 001 >/dev/null && printf '{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"src/app.ts\"}}' | \"$PYBIN\" .claude/workflow/engine/post_tool_use_core.py --project-dir \"$tmp\" >/dev/null && jq -e '.autonomy.tool_event_count >= 1 and .autonomy.last_tool_event_at != \"\"' .rpi-outfile/state/current_task.json >/dev/null)"
+      },
+      {
+        "name": "core_checks_smoke",
+        "command": "bash .claude/workflow/rpi.sh check discovery --quiet && bash .claude/workflow/rpi.sh check scope --quiet && bash .claude/workflow/rpi.sh check architecture --quiet"
+      },
+      {
+        "name": "architecture_scan_limit_runtime",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Architecture scan limit runtime' Web >/dev/null && jq '.architecture_scan_max_files = 1 | .architecture_scan_exclude_dirs = [\".git\", \"node_modules\"]' .claude/workflow/config/runtime.json > .claude/workflow/config/runtime.json.tmp && mv .claude/workflow/config/runtime.json.tmp .claude/workflow/config/runtime.json && bash .claude/workflow/rpi.sh check architecture --quiet)"
+      },
+      {
+        "name": "mvp_override_waiver_pass",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Override waiver pass' Web >/dev/null && bash .claude/workflow/rpi.sh mode profile apply strict-regulated >/dev/null && bash .claude/workflow/rpi.sh init bootstrap --force 'Override waiver pass' Web >/dev/null && sed -i.bak 's/^- 选择方向：.*/- 选择方向：B（核心可用级）/' .rpi-outfile/specs/l0/discovery.md && sed -i.bak 's/^- 覆盖率目标：.*/- 覆盖率目标：P0 >= 75%/' .rpi-outfile/specs/l0/discovery.md && sed -i.bak 's/^- 加权覆盖率目标：.*/- 加权覆盖率目标：80%/' .rpi-outfile/specs/l0/discovery.md && rm -f .rpi-outfile/specs/l0/discovery.md.bak && bash .claude/workflow/rpi.sh check discovery --quiet)"
+      },
+      {
+        "name": "mvp_override_missing_demote_fails",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Override enforce fail' Web >/dev/null && bash .claude/workflow/rpi.sh mode profile apply strict-regulated >/dev/null && bash .claude/workflow/rpi.sh init bootstrap --force 'Override enforce fail' Web >/dev/null && sed -i.bak 's/^- 选择方向：.*/- 选择方向：B（核心可用级）/' .rpi-outfile/specs/l0/discovery.md && sed -i.bak 's/^- 覆盖率目标：.*/- 覆盖率目标：P0 >= 75%/' .rpi-outfile/specs/l0/discovery.md && sed -i.bak 's/^- 加权覆盖率目标：.*/- 加权覆盖率目标：80%/' .rpi-outfile/specs/l0/discovery.md && sed -i.bak '/^  - 降权 /d' .rpi-outfile/specs/l0/discovery.md && rm -f .rpi-outfile/specs/l0/discovery.md.bak && ! bash .claude/workflow/rpi.sh check discovery --quiet)"
+      },
+      {
+        "name": "doctor_runs",
+        "command": "bash .claude/workflow/rpi.sh check doctor >/dev/null 2>&1 || test $? -eq 2"
+      },
+      {
+        "name": "linkage_runtime_controls_wired",
+        "command": "rg -q \"auto_inject_linkage_context\" .claude/workflow/engine/user_prompt_submit_core.py && rg -q \"require_linkage_spec\" .claude/workflow/engine/pre_tool_use_core.py && rg -q \"linkage_strict_mode\" .claude/workflow/engine/pre_tool_use_core.py"
+      },
+      {
+        "name": "spec_aliases_config_exists",
+        "command": "test -f .claude/workflow/config/spec_aliases.json && jq -e '(.fields.goal | length >= 1) and (.fields.target_user | length >= 1)' .claude/workflow/config/spec_aliases.json >/dev/null"
+      },
+      {
+        "name": "skills_use_microkernel_entry",
+        "command": "! rg -n \"\\.claude/workflow/scripts/\" .claude/skills >/dev/null"
+      },
+      {
+        "name": "legacy_scripts_dir_absent",
+        "command": "test ! -d .claude/workflow/scripts"
+      },
+      {
+        "name": "metadata_fields_removed",
+        "command": "! rg -n \"最后更新|维护者|Maintainer|Last Updated|Updated on\" .rpi-blueprint/specs .claude/skills >/dev/null"
+      },
+      {
+        "name": "commands_no_smart_quotes",
+        "command": "! rg -n \"[“”‘’]\" .claude/commands >/dev/null"
+      },
+      {
+        "name": "engine_usage_no_script_entry",
+        "command": "! rg -n \"Usage: bash \\.claude/workflow/scripts\" .claude/workflow/engine >/dev/null"
+      },
+      {
+        "name": "primary_check_cwd_independent",
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap \"Gate path eval\" Web >/dev/null && cd .claude && bash workflow/rpi.sh check bootstrap >/dev/null)"
+      },
+      {
+        "name": "gates_preview",
+        "command": "bash .claude/workflow/rpi.sh gates preview standard >/dev/null"
+      }
+    ]
+  }
+}
