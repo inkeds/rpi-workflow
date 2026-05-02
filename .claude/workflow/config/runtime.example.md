@@ -237,7 +237,22 @@
 
 **说明补充**：
 - `/rpi-auto review` 会输出评审报告到 `.rpi-outfile/state/agent-review/latest.json`
+- `/rpi-auto review` 同时输出裁决卡到 `.rpi-outfile/state/agent-review/review_card.latest.json`
 - 仅当 `a2a_allow_commit=true` 时，`--auto-merge` 才允许自动提交
+
+---
+
+### opsx_enabled / auto_rpi_run_review / review_decision_mode
+
+**类型**：`boolean / boolean / string`  
+**默认值**：`true / true / advisory`  
+**说明**：是否启用 OPSX 可移植契约、`/rpi-auto run` 成功后是否自动串联 review，以及 review 的裁决级别。
+
+**作用**：
+- `opsx_enabled=true`：在 `contract.latest.json` / `evidence.latest.json` 中输出 `Objective-Policy-Spec-Execution` 结构
+- `auto_rpi_run_review=true`：`/rpi-auto run` 成功后自动执行 `/rpi-auto review`
+- `review_decision_mode=advisory`：review 失败只记录结果，不阻断 auto-rpi 成功返回
+- `review_decision_mode=enforce`：review 未通过或需要人工审批时，auto-rpi 视为未完成最终裁决
 
 ---
 

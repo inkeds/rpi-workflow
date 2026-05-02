@@ -703,6 +703,10 @@ bash .claude/workflow/rpi.sh init bootstrap [--force] [idea] [platform]
 | `--auto-fix` / `--no-auto-fix` | 是否自动反熵修复后重试 | runtime `auto_rpi_auto_fix` |
 | `--force` | 即使 runtime 关闭 auto_rpi 也强制执行 | `false` |
 
+说明：
+- 当 `runtime.auto_rpi_run_review=true` 且 `agent_review_enabled=true` 时，`/rpi-auto run` 在门控通过后会自动串联一次 `/rpi-auto review`
+- 当 `review_decision_mode=enforce` 时，若 review 结果为 `manual_review_required` 或 `rejected`，`/rpi-auto run` 会以失败退出
+
 ### 8.2 review（A2A 评审）
 
 语法：
@@ -720,6 +724,11 @@ bash .claude/workflow/rpi.sh init bootstrap [--force] [idea] [platform]
 | `--auto-merge` | 评审通过后尝试自动提交非核心变更 | `false` |
 | `--quiet` | 安静输出 | `false` |
 | `--json` | JSON 输出完整报告 | `false` |
+
+输出产物：
+- `.rpi-outfile/state/agent-review/latest.json`：完整评审报告
+- `.rpi-outfile/state/agent-review/review_card.latest.json`：标准化裁决卡
+- 评审后会刷新 `.rpi-outfile/state/portable/contract.latest.json` 和 `.rpi-outfile/state/portable/evidence.latest.json`
 
 ### 8.3 memory（经验沉淀）
 

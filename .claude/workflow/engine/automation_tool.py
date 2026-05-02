@@ -308,6 +308,34 @@ def append_event(paths: Paths, event: Dict[str, Any]) -> None:
     append_jsonl(paths.base.event_log, row)
 
 
+def update_current_task_review_state(
+    paths: Paths,
+    *,
+    decision_result: str,
+    review_mode: str,
+    reviewed_at: str,
+    card_path: Path,
+) -> None:
+    current = read_json_obj(paths.base.current_task_file)
+    task_id = str_value(current.get("task_id", ""), "")
+    status = str_value(current.get("status", "idle"), "idle")
+    if not task_id or status == "idle":
+        return
+
+    review = current.get("review")
+    if not isinstance(review, dict):
+        review = {}
+    review["last_status"] = decision_result or "unknown"
+    review["last_reviewed_at"] = reviewed_at
+    review["last_decision_mode"] = review_mode
+    review["last_card"] = str(card_path)
+    current["review"] = review
+    current["last_updated_at"] = reviewed_at
+    write_json_atomic(paths.base.current_task_file, current)
+    task_flow.write_portable_contract(paths.base, current, transition="reviewed", reason=decision_result)
+    write_json_atomic(paths.base.current_task_file, current)
+
+
 def snapshot_before_mutation(paths: Paths, reason: str, targets: Sequence[Path], actor: str = "automation") -> List[Dict[str, Any]]:
     rows = artifact_recovery.snapshot_files(
         project_dir=paths.base.project_dir,
@@ -357,6 +385,9 @@ def cmd_harness(paths: Paths, argv: Sequence[str]) -> int:
             "mvp_priority_override_mode": str_value(runtime.get("mvp_priority_override_mode", "warn"), "warn"),
             "precode_guard_mode": str_value(runtime.get("precode_guard_mode", "enforce"), "enforce"),
             "tdd_mode": str_value(runtime.get("tdd_mode", "strict"), "strict"),
+            "opsx_enabled": bool_value(runtime.get("opsx_enabled", True), True),
+            "auto_rpi_run_review": bool_value(runtime.get("auto_rpi_run_review", True), True),
+            "review_decision_mode": str_value(runtime.get("review_decision_mode", "advisory"), "advisory"),
             "gates_auto_retry_enabled": bool_value(runtime.get("gates_auto_retry_enabled", False), False),
             "gates_auto_retry_max": int_value(runtime.get("gates_auto_retry_max", 0), 0),
             "gates_auto_fix_on_fail": bool_value(runtime.get("gates_auto_fix_on_fail", False), False),
@@ -400,6 +431,9 @@ def cmd_harness(paths: Paths, argv: Sequence[str]) -> int:
                 "mvp_max_promote_non_core": 1,
                 "precode_guard_mode": "enforce",
                 "tdd_mode": "strict",
+                "opsx_enabled": True,
+                "auto_rpi_run_review": True,
+                "review_decision_mode": "enforce",
                 "gates_auto_retry_enabled": True,
                 "gates_auto_retry_max": 3,
                 "gates_auto_fix_on_fail": True,
@@ -431,6 +465,9 @@ def cmd_harness(paths: Paths, argv: Sequence[str]) -> int:
                 "mvp_priority_override_mode": "off",
                 "precode_guard_mode": "off",
                 "tdd_mode": "off",
+                "opsx_enabled": False,
+                "auto_rpi_run_review": False,
+                "review_decision_mode": "advisory",
                 "gates_auto_retry_enabled": False,
                 "gates_auto_retry_max": 0,
                 "gates_auto_fix_on_fail": False,
@@ -1614,9 +1651,33 @@ def cmd_auto_rpi(paths: Paths, argv: Sequence[str]) -> int:
 
     if success:
         agent_review_enabled = bool_value(runtime.get("agent_review_enabled", False), False)
+        auto_rpi_run_review = bool_value(runtime.get("auto_rpi_run_review", True), True)
         auto_merge_non_core = bool_value(runtime.get("a2a_auto_merge_non_core", False), False)
-        if agent_review_enabled and auto_merge_non_core:
-            _ = cmd_a2a_review(paths, ["--auto-merge", "--quiet"])
+        review_decision_mode = str_value(runtime.get("review_decision_mode", "advisory"), "advisory")
+        if agent_review_enabled and auto_rpi_run_review:
+            review_args = ["--quiet"]
+            if auto_merge_non_core:
+                review_args.insert(0, "--auto-merge")
+            review_rc = cmd_a2a_review(paths, review_args)
+            review_card = read_json_obj(paths.state_agent_review_dir / "review_card.latest.json")
+            review_decision = review_card.get("decision", {}) if isinstance(review_card.get("decision"), dict) else {}
+            review_result = str_value(review_decision.get("result", ""), "")
+            append_event(
+                paths,
+                {
+                    "event": "auto_rpi_review",
+                    "phase": phase,
+                    "review_result": review_result or "unknown",
+                    "review_decision_mode": review_decision_mode,
+                    "status": "pass" if review_rc == 0 else "fail",
+                },
+            )
+            if review_rc != 0 and review_decision_mode == "enforce":
+                safe_print(
+                    f"auto-rpi gate passed but review blocked final approval (decision={review_result or 'unknown'}).",
+                    stream=sys.stderr,
+                )
+                return 1
         safe_print(
             f"auto-rpi succeeded (phase={phase}, rounds<={max_rounds}, minutes<={max_minutes}, events<={max_tool_events})"
         )
@@ -1771,6 +1832,14 @@ def cmd_a2a_review(paths: Paths, argv: Sequence[str]) -> int:
         return 1
 
     non_core_change = not any(is_core_file(f) for f in changed_files)
+    runtime_tdd_mode = str_value(runtime.get("tdd_mode", "recommended"), "recommended")
+    review_decision_mode = str_value(runtime.get("review_decision_mode", "advisory"), "advisory")
+    current_task = read_json_obj(paths.base.current_task_file)
+    current_task_id = str_value(current_task.get("task_id", ""), "")
+    current_task_status = str_value(current_task.get("status", "idle"), "idle")
+    active_task = bool(current_task_id) and current_task_status == "in_progress"
+    current_tdd = current_task.get("tdd", {}) if isinstance(current_task.get("tdd"), dict) else {}
+    current_gate = current_task.get("quality_gate", {}) if isinstance(current_task.get("quality_gate"), dict) else {}
     checks: List[Dict[str, Any]] = []
 
     def add_check(name: str, status: bool) -> None:
@@ -1790,21 +1859,52 @@ def cmd_a2a_review(paths: Paths, argv: Sequence[str]) -> int:
     add_check("contract_check", str_value(contract.get("status", ""), "") == "pass")
     scope = guardrails.check_scope_guard(paths.base.project_dir, quiet=True)
     add_check("scope_check", str_value(scope.get("status", ""), "") == "pass")
+    add_check("active_task_context", active_task or non_core_change)
+
+    if runtime_tdd_mode == "off":
+        add_check("tdd_evidence", True)
+    else:
+        tdd_ready = bool_value(current_tdd.get("red_test_written", False), False) and str_value(current_tdd.get("latest_test_status", "unknown"), "unknown") == "pass"
+        add_check("tdd_evidence", tdd_ready if active_task else non_core_change)
+
+    gate_ready = str_value(current_gate.get("last_run_status", "unknown"), "unknown") == "pass"
+    add_check("quality_gate", gate_ready if active_task else non_core_change)
 
     if bool_value(runtime.get("architecture_enforce", False), False):
         arch = guardrails.architecture_check(paths.base.project_dir, quiet=True, json_output=False, require_rules=False)
         add_check("architecture_check", str_value(arch.get("status", ""), "") == "pass")
 
     risk_decisions: List[Dict[str, Any]] = []
-    risk_fail = False
+    risk_rejected = False
+    risk_requires_manual = False
+    max_risk_level = "R0"
+    max_risk_decision = "allow"
     for f in changed_files:
         risk = guardrails.assess_risk(paths.base.project_dir, tool="Edit", value=f, profile_override="")
         risk_decisions.append({"file": f, "risk": risk})
-        if str_value(risk.get("decision", "allow"), "allow") == "deny":
-            risk_fail = True
+        risk_level = str_value(risk.get("level", "R0"), "R0")
+        risk_decision = str_value(risk.get("decision", "allow"), "allow")
+        if guardrails.risk_level_score(risk_level) > guardrails.risk_level_score(max_risk_level):
+            max_risk_level = risk_level
+        if risk_decision == "deny":
+            risk_rejected = True
+        if risk_decision == "ask" or guardrails.risk_level_score(risk_level) >= guardrails.risk_level_score("R2"):
+            risk_requires_manual = True
+        if guardrails.risk_decision_score(risk_decision) > guardrails.risk_decision_score(max_risk_decision):
+            max_risk_decision = risk_decision
 
     check_fail_count = len([c for c in checks if c.get("status") == "fail"])
-    approved = check_fail_count == 0 and not risk_fail
+    if check_fail_count > 0 or risk_rejected:
+        decision_result = "rejected"
+        decision_summary = "Review rejected because deterministic checks failed or a deny-level risk was detected."
+    elif risk_requires_manual:
+        decision_result = "manual_review_required"
+        decision_summary = "Review requires human approval because the change is medium/high risk or has ask-level risk routing."
+    else:
+        decision_result = "approved"
+        decision_summary = "Review approved automatically because checks passed and risk stayed within low-risk bounds."
+    approved = decision_result == "approved"
+    human_review_required = decision_result == "manual_review_required"
     auto_merge_candidate = approved and non_core_change
     auto_merged = False
     merge_note = ""
@@ -1836,13 +1936,22 @@ def cmd_a2a_review(paths: Paths, argv: Sequence[str]) -> int:
                 else:
                     merge_note = "git_commit_failed"
 
+    reviewed_at = utc_now()
     report = {
-        "reviewed_at": utc_now(),
+        "reviewed_at": reviewed_at,
         "changed_files": changed_files,
         "non_core_change": non_core_change,
+        "active_task_id": current_task_id,
+        "active_task_status": current_task_status,
         "checks": checks,
         "risk_decisions": risk_decisions,
         "approved": approved,
+        "human_review_required": human_review_required,
+        "decision_result": decision_result,
+        "decision_summary": decision_summary,
+        "review_decision_mode": review_decision_mode,
+        "max_risk_level": max_risk_level,
+        "max_risk_decision": max_risk_decision,
         "auto_merge_candidate": auto_merge_candidate,
         "auto_merge_requested": auto_merge,
         "auto_merged": auto_merged,
@@ -1850,15 +1959,74 @@ def cmd_a2a_review(paths: Paths, argv: Sequence[str]) -> int:
     }
     report_file = paths.state_agent_review_dir / "latest.json"
     write_json_atomic(report_file, report)
+    review_card = {
+        "version": 1,
+        "reviewed_at": reviewed_at,
+        "task": {
+            "task_id": current_task_id,
+            "status": current_task_status,
+            "phase": str_value(current_task.get("phase", ""), ""),
+        },
+        "decision": {
+            "result": decision_result,
+            "summary": decision_summary,
+            "review_decision_mode": review_decision_mode,
+            "approved": approved,
+            "human_review_required": human_review_required,
+        },
+        "routing": {
+            "max_risk_level": max_risk_level,
+            "max_risk_decision": max_risk_decision,
+            "non_core_change": non_core_change,
+            "auto_merge_candidate": auto_merge_candidate,
+            "auto_merge_requested": auto_merge,
+            "auto_merged": auto_merged,
+            "merge_note": merge_note,
+        },
+        "checks": {
+            "spec_alignment": [row for row in checks if str_value(row.get("name", ""), "") in {"spec_verify", "discovery_check", "contract_check", "scope_check", "architecture_check"}],
+            "execution_quality": [row for row in checks if str_value(row.get("name", ""), "") in {"active_task_context", "tdd_evidence", "quality_gate"}],
+            "risk": {
+                "decisions": risk_decisions,
+            },
+        },
+        "changed_files": changed_files,
+        "artifact_refs": {
+            "portable_contract": ".rpi-outfile/state/portable/contract.latest.json",
+            "task_capsule": ".rpi-outfile/state/context/task_capsule.json",
+            "evidence_latest": ".rpi-outfile/state/portable/evidence.latest.json",
+            "full_report": ".rpi-outfile/state/agent-review/latest.json",
+        },
+    }
+    review_card_file = paths.state_agent_review_dir / "review_card.latest.json"
+    write_json_atomic(review_card_file, review_card)
+    if active_task:
+        update_current_task_review_state(
+            paths,
+            decision_result=decision_result,
+            review_mode=review_decision_mode,
+            reviewed_at=reviewed_at,
+            card_path=review_card_file,
+        )
+    else:
+        portable_task = dict(current_task)
+        if "phase" not in portable_task or not str_value(portable_task.get("phase", ""), ""):
+            portable_task["phase"] = str_value(read_json_obj(paths.base.phase_file).get("phase", "M0"), "M0")
+        portable_task.setdefault("status", current_task_status or "idle")
+        task_flow.write_portable_contract(paths.base, portable_task, transition="reviewed", reason=decision_result)
     append_event(
         paths,
         {
             "event": "a2a_review",
             "approved": approved,
+            "human_review_required": human_review_required,
+            "decision_result": decision_result,
+            "review_decision_mode": review_decision_mode,
             "non_core_change": non_core_change,
             "auto_merge_candidate": auto_merge_candidate,
             "auto_merged": auto_merged,
             "merge_note": merge_note,
+            "review_card": str(review_card_file),
         },
     )
 
@@ -1868,12 +2036,17 @@ def cmd_a2a_review(paths: Paths, argv: Sequence[str]) -> int:
         safe_print(f"A2A review report: {report_file}")
         subset = {
             "approved": approved,
+            "human_review_required": human_review_required,
+            "decision_result": decision_result,
+            "review_decision_mode": review_decision_mode,
+            "max_risk_level": max_risk_level,
             "non_core_change": non_core_change,
             "auto_merge_candidate": auto_merge_candidate,
             "auto_merged": auto_merged,
             "merge_note": merge_note,
             "changed_files": changed_files,
             "checks": checks,
+            "review_card": str(review_card_file),
         }
         safe_print(json.dumps(subset, ensure_ascii=False, indent=2))
 
@@ -2308,6 +2481,7 @@ def cmd_resume_task(paths: Paths, argv: Sequence[str]) -> int:
     resumed["guardrails"] = guardrails_obj
     write_json_atomic(paths.base.current_task_file, resumed)
     contract_file = task_flow.write_portable_contract(paths.base, resumed, transition="resumed")
+    write_json_atomic(paths.base.current_task_file, resumed)
 
     stop_state = paths.base.state_dir / "stop_loop_state.json"
     if stop_state.exists():
@@ -3333,6 +3507,12 @@ def build_mvp_placeholder_replacements(
     term_example = profile.get("term_example", core_object)
     term_definition = profile.get("term_definition", "关键业务实体")
     tech_stack = profile.get("tech_stack", "Web + API + 存储")
+    must_a, wont_a = profile_must_wont_map(profile, "A")
+    must_b, wont_b = profile_must_wont_map(profile, "B")
+    must_c, wont_c = profile_must_wont_map(profile, "C")
+
+    def join_items(items: Sequence[str]) -> str:
+        return ", ".join(str(x).strip() for x in items if str(x).strip())
 
     return {
         "角色、对象、触发条件": f"{actor}、{core_object}、登录后触发业务动作",
@@ -3356,19 +3536,19 @@ def build_mvp_placeholder_replacements(
         f"P0 覆盖率 >= {cov_a}%，至少 1 条主链路 + 1 条关键异常链路": f"P0 覆盖率 >= {cov_a}%，主链路 L1 + 异常链路 L2",
         "至少 1 个 Core 上下文（示例：C1 [Core]）": "C1 [Core]",
         "可选提升 1 项非核心能力；需同步降权 1 项并给出理由": "可提升 1 项非核心能力并同步降权 1 项，记录取舍理由",
-        "选定链路 IDs（示例：L1,L2）": "L1, L2",
-        "未入选链路 + 非核心扩展能力": "L3, L4, 低优先级扩展能力",
+        "选定链路 IDs（示例：L1,L2）": join_items(must_a[:3]) or "L1, L2",
+        "未入选链路 + 非核心扩展能力": join_items(wont_a[:3]) or "L3, L4, 低优先级扩展能力",
         "最小可验证实现方案": tech_stack,
         f"P0 覆盖率 >= {cov_b}%，主路径链路可用且可复测": f"P0 覆盖率 >= {cov_b}%，链路 L1/L2/L3 可复测",
         "Core + 至少 1 个 Supporting（示例：C1,C2）": "C1 [Core] + C2 [Supporting]",
-        "选定链路 IDs（示例：L1,L2,L3）": "L1, L2, L3",
-        "运营深水区、重型扩展、低频场景": "L4 与低频扩展场景",
+        "选定链路 IDs（示例：L1,L2,L3）": join_items(must_b[:3]) or "L1, L2, L3",
+        "运营深水区、重型扩展、低频场景": join_items(wont_b[:3]) or "L4 与低频扩展场景",
         "成熟稳定的主流方案": tech_stack,
         f"P0 覆盖率 = {cov_c}%，并补齐运营治理链路": f"P0 覆盖率 = {cov_c}%，补齐治理链路 G1",
         "所有 P0 上下文 + 治理上下文（示例：C1,C2,C3[Governance]）": "C1 + C2 + C3 [Governance]",
         "允许调权但不降低治理能力要求": "允许调权，但审计与治理能力必须保留",
-        "方向 B 链路 + 运营治理链路 IDs（监控/审计/恢复）": "L1, L2, L3, G1",
-        "超大规模优化、复杂中间件引入": "跨区域容灾与复杂中间件二期引入",
+        "方向 B 链路 + 运营治理链路 IDs（监控/审计/恢复）": join_items((must_c[:3] + ["G1"])) or "L1, L2, L3, G1",
+        "超大规模优化、复杂中间件引入": join_items(wont_c[:3]) or "跨区域容灾与复杂中间件二期引入",
         "方向 B 技术栈 + 运维治理工具链": f"{tech_stack} + 日志指标告警链路",
         "非核心功能提升原因（用户价值/业务时机/风险收益）": "首轮试点用户需要快速看到统计价值",
         "被降权项及影响说明": "将治理细分能力下放至 M1，M0 保留基础校验",
@@ -3750,6 +3930,137 @@ def materialize_l0_docs(
     governance_flow = str_value(profile.get("governance_flow", "治理链路保持可追溯"))
     extension_flow = str_value(profile.get("extension_flow", "扩展链路按阶段引入"))
     segment_scope = profile_segment_scope(profile, direction)
+    term_example = str_value(profile.get("term_example", core_object))
+    term_definition = str_value(profile.get("term_definition", "关键业务实体"))
+    tech_stack = str_value(profile.get("tech_stack", "Web + API + 存储"))
+    abc_map = profile.get("abc", {})
+    if not isinstance(abc_map, dict):
+        abc_map = {}
+
+    if domain == "在线课程":
+        high_freq_scenario = "学员高频浏览课程、播放短视频/音频、收藏订阅并续学，系统持续校验 VIP 权益"
+        time_window = "2-4 周完成 S0 运营闭环，并保留 M1/M2 演进跑道"
+        facts = [
+            f"{main_flow} 是当前 MVP 的核心用户价值承载链路。",
+            f"{governance_flow} 会直接影响内容可用性、权益正确性与运营稳定性。",
+        ]
+        assumptions = [
+            f"M0 只覆盖 {segment_scope} 内的核心闭环，不引入第三方支付等未选能力。",
+            "前端交付必须覆盖已选 Must 链路的完整 UX 状态，而不是静态页面或演示半成品。",
+        ]
+        open_questions = [
+            "M1 是优先增强搜索推荐，还是新增 1 条内容运营业务线？",
+            "M2 是否需要引入更强的媒体分发与容量治理方案？",
+        ]
+        bounded_contexts = [
+            "C1 [Core]：课程消费与播放上下文",
+            "C2 [Supporting]：订阅收藏与学习历史上下文",
+            "C3 [Governance]：VIP 权益、激活码与审计上下文",
+        ]
+        invariants = [
+            "未登录或无权益的学员不得访问受限课程媒体资源",
+            "学习历史只能基于真实播放行为更新，不允许伪造完成进度",
+            "激活码无效、重复或过期时必须拒绝，并返回可解释原因",
+            "VIP 权益变更后访问权限必须即时生效且留痕",
+        ]
+        success_metrics = [
+            f"{coverage_target} 且已选 Must 链路可重复回归",
+            "课程播放、收藏订阅、学习历史与 VIP 激活码闭环可正常运营",
+            f"加权覆盖率目标达到 {weighted_target}",
+        ]
+    elif domain == "用户管理":
+        high_freq_scenario = "管理员高频创建、查询、编辑用户档案并调整基础角色权限"
+        time_window = "2-4 周完成 S0 运营闭环"
+        facts = [
+            f"{main_flow} 决定了统一用户底座是否可复用。",
+            f"{governance_flow} 会直接影响权限一致性与审计要求。",
+        ]
+        assumptions = [
+            f"M0 聚焦 {segment_scope} 内的最小可运营闭环，不引入高阶运营分析。",
+            "权限与审计要优先于批量便利性功能。",
+        ]
+        open_questions = [
+            "M1 优先补搜索筛选还是批量处理能力？",
+            "M2 是否需要对接更多身份源或组织治理？",
+        ]
+        bounded_contexts = [
+            "C1 [Core]：用户档案上下文",
+            "C2 [Supporting]：角色绑定与检索上下文",
+            "C3 [Governance]：审计与权限治理上下文",
+        ]
+        invariants = [
+            "未鉴权请求不得创建或修改用户档案",
+            "角色变更后权限必须即时生效并可追溯",
+            "同一身份标识冲突时必须显式拒绝",
+            "关键修改必须写入审计轨迹",
+        ]
+        success_metrics = [
+            f"{coverage_target} 且已选 Must 链路可复测",
+            "用户创建、维护与基础角色绑定可稳定执行",
+            f"加权覆盖率目标达到 {weighted_target}",
+        ]
+    elif domain == "订单管理":
+        high_freq_scenario = "运营高频创建订单、推进状态流转并处理库存或状态异常"
+        time_window = "2-4 周完成 S0 运营闭环"
+        facts = [
+            f"{main_flow} 是订单体系最小可运营闭环的主体。",
+            f"{governance_flow} 直接影响状态一致性、风控与审计可靠性。",
+        ]
+        assumptions = [
+            f"M0 聚焦 {segment_scope} 内的核心交易闭环，不引入复杂渠道与商业化扩展。",
+            "状态一致性优先于复杂自动化流程。",
+        ]
+        open_questions = [
+            "M1 优先补履约优化还是风控增强？",
+            "M2 是否需要引入更强的容量治理与对账能力？",
+        ]
+        bounded_contexts = [
+            "C1 [Core]：订单流转上下文",
+            "C2 [Supporting]：订单明细与检索上下文",
+            "C3 [Governance]：风控与审计上下文",
+        ]
+        invariants = [
+            "未鉴权请求不得创建或修改订单",
+            "订单状态跃迁必须符合状态机，不允许非法跳转",
+            "库存不足或状态冲突时必须显式拒绝并说明原因",
+            "关键状态变更必须留存审计轨迹",
+        ]
+        success_metrics = [
+            f"{coverage_target} 且订单主链路与异常链路可复测",
+            "订单创建、状态流转与异常回执可以稳定执行",
+            f"加权覆盖率目标达到 {weighted_target}",
+        ]
+    else:
+        high_freq_scenario = f"{actor} 高频执行 {core_object} 的创建、处理、查询与回执追踪"
+        time_window = "2-4 周完成 S0 运营闭环"
+        facts = [
+            f"{main_flow} 决定了该业务想法是否能形成可运营最小闭环。",
+            f"{governance_flow} 影响状态一致性、权限控制与审计留痕。",
+        ]
+        assumptions = [
+            f"M0 聚焦 {segment_scope} 内的主业务线，不把低频扩展挤进首轮交付。",
+            "异常链路必须具备可解释反馈与可回归测试入口。",
+        ]
+        open_questions = [
+            "M1 优先做体验优化，还是新增 1 条受控业务方向？",
+            "M2 是否需要补更强的规模化治理与生态试点？",
+        ]
+        bounded_contexts = [
+            "C1 [Core]：核心业务上下文",
+            f"C2 [Supporting]：{core_object} 管理与查询上下文",
+            "C3 [Governance]：审计与权限治理上下文",
+        ]
+        invariants = [
+            f"未鉴权请求不得创建或修改{core_object}",
+            f"{core_object} 创建后必须有唯一标识且状态可追溯",
+            "冲突场景必须返回可解释错误，不允许静默覆盖",
+            "关键状态变更必须写入审计轨迹并可回放",
+        ]
+        success_metrics = [
+            f"{coverage_target} 且已选 Must 链路可复测",
+            f"{core_object} 主链路、异常链路与基础治理链路可稳定执行",
+            f"加权覆盖率目标达到 {weighted_target}",
+        ]
 
     if domain == "在线课程":
         entities = [
@@ -3836,6 +4147,105 @@ def materialize_l0_docs(
         errors = ["UNAUTHORIZED", "VALIDATION_ERROR", "CONFLICT"]
         m1_scope = "主链路体验优化与受控新增能力"
         m2_scope = "规模化稳定性、性能治理与审计闭环"
+
+    discovery_lines: List[str] = [
+        "# L0 Discovery",
+        "",
+        "## 一句话设想",
+        f"- 目标：{idea}",
+        f"- 目标用户：{actor}",
+        f"- 高频使用场景：{high_freq_scenario}",
+        f"- 时间窗口：{time_window}",
+        "",
+        "## Facts / Assumptions / Open Questions",
+        "",
+        "### Facts",
+    ]
+    for idx, row in enumerate(facts, start=1):
+        discovery_lines.append(f"{idx}. {row}")
+    discovery_lines.extend(["", "### Assumptions"])
+    for idx, row in enumerate(assumptions, start=1):
+        discovery_lines.append(f"{idx}. {row}")
+    discovery_lines.extend(["", "### Open Questions"])
+    for idx, row in enumerate(open_questions, start=1):
+        discovery_lines.append(f"{idx}. {row}")
+    discovery_lines.extend(
+        [
+            "",
+            "## ABC 业务段画布（S0-S3）",
+            "",
+            "| 业务段 | 定位 | 说明 |",
+            "|---|---|---|",
+            f"| S0 | MVP运营段 | {str_value(profile.get('segments', {}).get('S0', 'S0'))} |",
+            f"| S1 | 成长期段 | {str_value(profile.get('segments', {}).get('S1', 'S1'))} |",
+            f"| S2 | 成熟期段 | {str_value(profile.get('segments', {}).get('S2', 'S2'))} |",
+            f"| S3 | 生态持续进化段 | {str_value(profile.get('segments', {}).get('S3', 'S3'))} |",
+            "",
+            "## 核心链路候选池",
+            "",
+            "| 链路ID | 链路描述 | 覆盖属性 |",
+            "|---|---|---|",
+            f"| L1 | {desc_map.get('L1', '主链路')} | 主链路 / P0 |",
+            f"| L2 | {desc_map.get('L2', '异常链路')} | 异常链路 / P0 |",
+            f"| L3 | {desc_map.get('L3', '治理链路')} | 治理链路 / P0-P1 |",
+            f"| L4 | {desc_map.get('L4', '扩展链路')} | 扩展链路 / P1-P2 |",
+            "",
+            "## ABC 方向差异",
+            "",
+            f"- 方向 A：{str_value(abc_map.get('A', 'A = S0'))}",
+            f"  - Must：{', '.join(profile_must_wont_map(profile, 'A')[0])}",
+            f"  - Won't：{', '.join(profile_must_wont_map(profile, 'A')[1][:3])}",
+            f"  - 覆盖门槛：P0 >= {coverage_target.replace('P0 >= ', '')}",
+            f"- 方向 B：{str_value(abc_map.get('B', 'B = S0 + S1'))}",
+            f"  - Must：{', '.join(profile_must_wont_map(profile, 'B')[0])}",
+            f"  - Won't：{', '.join(profile_must_wont_map(profile, 'B')[1][:3])}",
+            "- 覆盖门槛：P0 >= 80%",
+            f"- 方向 C：{str_value(abc_map.get('C', 'C = S0 + S1 + S2（S3 路线图）'))}",
+            f"  - Must：{', '.join(profile_must_wont_map(profile, 'C')[0])}",
+            f"  - Won't：{', '.join(profile_must_wont_map(profile, 'C')[1][:3])}",
+            "- 覆盖门槛：P0 = 100%",
+            "",
+            "## DDD-Lite 语义与边界",
+            f"- 统一语言（Ubiquitous Language）：",
+            f"  - {actor}：核心业务主参与者",
+            f"  - {core_object}：核心业务结果承载对象",
+            f"  - {term_example}：{term_definition}",
+            "  - 审计轨迹：用于回放操作、状态与结果的证据链",
+            f"- 限界上下文（Bounded Context）：",
+        ]
+    )
+    for row in bounded_contexts:
+        discovery_lines.append(f"  - {row}")
+    discovery_lines.extend(["- 业务不变量（Domain Invariants）："])
+    for row in invariants:
+        discovery_lines.append(f"  - {row}")
+    discovery_lines.extend(
+        [
+            "- 已选上下文（M0）：",
+            f"  - {bounded_contexts[0]}",
+            f"  - {bounded_contexts[1]}",
+            "",
+            "## 结论",
+            f"- 选择方向：{default_direction_label(direction)}",
+            f"- ABC 业务段选择：{direction}（{segment_scope}）",
+            f"- 运行形态：{platform}",
+            f"- 建议技术栈：{tech_stack}",
+            f"- 覆盖率目标：{coverage_target}",
+            f"- 加权覆盖率目标：{weighted_target}",
+            f"- M0~M2 阶段扩展策略：M0={profile_phase_strategy(profile, 'M0')}；M1={profile_phase_strategy(profile, 'M1')}；M2={profile_phase_strategy(profile, 'M2')}",
+            "- 优先级调权：",
+            "  - 默认不调权；若提升非核心能力，必须同步记录降权项与影响说明",
+            "- M0 Must（1-3）：",
+        ]
+    )
+    for row in must_desc:
+        discovery_lines.append(f"  - {row}")
+    discovery_lines.append("- M0 Won't（>=3）：")
+    for row in wont_desc[:3]:
+        discovery_lines.append(f"  - {row}")
+    discovery_lines.append("- 成功指标（2-4）：")
+    for row in success_metrics:
+        discovery_lines.append(f"  - {row}")
 
     epic_lines: List[str] = [
         "# L0 Epic",
@@ -3995,6 +4405,7 @@ def materialize_l0_docs(
         ]
     )
 
+    (paths.spec_l0_dir / "discovery.md").write_text("\n".join(discovery_lines).rstrip("\n") + "\n", encoding="utf-8")
     (paths.spec_l0_dir / "epic.md").write_text("\n".join(epic_lines).rstrip("\n") + "\n", encoding="utf-8")
     (paths.spec_l0_dir / "spec.md").write_text("\n".join(spec_lines).rstrip("\n") + "\n", encoding="utf-8")
     (paths.spec_l0_dir / "milestones.md").write_text("\n".join(milestone_lines).rstrip("\n") + "\n", encoding="utf-8")

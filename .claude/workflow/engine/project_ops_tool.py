@@ -244,6 +244,9 @@ def default_runtime() -> Dict[str, Any]:
         "auto_rpi_max_failures": 1,
         "auto_rpi_max_tool_events": 120,
         "auto_rpi_auto_fix": False,
+        "opsx_enabled": True,
+        "auto_rpi_run_review": True,
+        "review_decision_mode": "advisory",
         "agent_memory_auto_update": True,
         "agent_review_enabled": True,
         "a2a_auto_merge_non_core": True,
@@ -304,6 +307,18 @@ def write_idle_task(path: Path, phase: str = "M0") -> None:
             "last_run_at": "",
             "last_verify_status": "unknown",
             "last_verify_count": 0,
+        },
+        "opsx": {
+            "enabled": True,
+            "contract_hash": "",
+            "last_contract_at": "",
+            "last_contract_transition": "",
+        },
+        "review": {
+            "last_status": "unknown",
+            "last_reviewed_at": "",
+            "last_decision_mode": "",
+            "last_card": "",
         },
         "guardrails": {"precode": {"status": "unknown", "signature": "", "verified_at": "", "note": ""}},
         "created_at": "",
@@ -1603,6 +1618,37 @@ def cmd_bootstrap(paths: Paths, args: argparse.Namespace) -> int:
                 print(out.rstrip("\n"), file=sys.stderr)
             print("bootstrap failed: unable to seed .rpi-outfile/specs/l0/mvp-skeleton.md", file=sys.stderr)
             return 1
+
+    try:
+        import automation_tool
+
+        auto_paths = automation_tool.build_paths(paths.project_dir)
+        profile = automation_tool.infer_business_profile(idea)
+        direction = "A"
+        must_ids, wont_ids = automation_tool.profile_must_wont_map(profile, direction)
+        coverage_target = f"P0 >= {cov_a}%"
+        automation_tool.seed_discovery_conclusion(
+            auto_paths,
+            idea=idea,
+            direction=direction,
+            must_ids=must_ids,
+            wont_ids=wont_ids[:3],
+            coverage_target=coverage_target,
+            weighted_target=f"{cov_a}%",
+        )
+        automation_tool.materialize_l0_docs(
+            paths=auto_paths,
+            idea=idea,
+            platform=platform,
+            profile=profile,
+            direction=direction,
+            must_ids=must_ids,
+            wont_ids=wont_ids[:3],
+            coverage_target=coverage_target,
+            weighted_target=f"{cov_a}%",
+        )
+    except Exception as exc:
+        print(f"warning: unable to materialize domain-aware L0 docs during bootstrap: {exc}", file=sys.stderr)
 
     _ = init_summary_file
     print("Bootstrap completed for empty project mode")

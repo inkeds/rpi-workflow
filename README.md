@@ -53,31 +53,37 @@ cp -r /path/to/rpi-workflow/.claude ~/my-project/
 cp /path/to/rpi-workflow/CLAUDE.md ~/my-project/
 ```
 
-### 6 步上手
+### 7 步上手
 
 ```bash
 # 1. 环境检查
 /rpi-check env
 
-# 2. 初始化项目（生成完整 L0 基线 + MVP 骨架）
+# 2. 初始化项目（生成业务化 L0 基线 + MVP 骨架）
 /rpi-init 我要做一个待办事项管理工具
 
-# 3. 想法深化（生成 4 阶段链路与 A/B/C 覆盖等级，选择并确认）
+# 3. 想法深化（生成 4 阶段链路与 A/B/C 业务段差异，回填 discovery 结论）
 /rpi-init deepen
 
-# 4. 健康检查
+# 4. 展开规范（实化 discovery/epic/spec/milestones/tasks）
+/rpi-spec expand
+
+# 5. 健康检查
 /rpi-check doctor
 
-# 5. 启动任务
+# 6. 启动任务
 /rpi-task start 001
 
-# 6. 完成任务
+# 7. 完成任务
 /rpi-gates run M0
 /rpi-task close pass auto 主链路通过
 ```
 
 > 注意：`.rpi-outfile/` 只会在执行初始化创建步骤后生成（例如 `/rpi-init <idea>` 或 `rpi.sh init setup ...`）。  
 > 初始化前请以 `.rpi-blueprint/specs` 作为模板参考；初始化后以 `.rpi-outfile` 作为运行事实源。
+
+> `/rpi-init`、`/rpi-init deepen`、`/rpi-spec expand` 现在共享同一套业务画像推断。  
+> 生成的 `discovery.md / epic.md / spec.md / milestones.md / tasks.md` 应该直接体现你的业务领域，不应再回落为“核心记录/一线业务操作人员”之类的通用模板。
 
 > 详细步骤见 [QUICKSTART.md](./QUICKSTART.md)
 
@@ -105,6 +111,7 @@ RPI Workflow 的设计目标不是“让 Agent 更自由”，而是“让 Agent
 - **DDD-Lite 语义层**：统一语言 + 限界上下文 + 业务不变量，作为 AI 执行前的语义与边界护栏。
 - **热路径缓存**：precode/spec-link 在任务内按签名缓存，只在规范、规则或配置变化时重校验。
 - **可移植契约包**：在 `rpi-outfile` 内输出可移植执行约束，外部模型可按同一 contract 执行。
+- **业务化初始化**：`/rpi-init` 与 `/rpi-spec expand` 共用领域画像源，初始化产物与后续规范实化保持一致。
 
 这也是 `/rpi-check theory` 的核心价值：持续校验“理论层约束”是否仍被执行层遵守。
 
@@ -162,14 +169,25 @@ Vibe（收敛价值） → Spec（锁定边界） → RPI（确定执行） → 
 - `.rpi-outfile/state/portable/contract.latest.json`
 - `.rpi-outfile/state/context/task_capsule.json`
 - `.rpi-outfile/state/portable/evidence_template.json`
+- `.rpi-outfile/state/portable/evidence.latest.json`
+- `.rpi-outfile/state/agent-review/review_card.latest.json`
 
 这些文件属于运行期产物：只有在 `.rpi-outfile` 已创建后才可用。
 
 这三类产物可直接交给其他 AI/编码工具使用：
 
-1. `contract.latest.json`：流程顺序、TDD/门控、范围边界、改动策略。
+1. `contract.latest.json`：显式 `OPSX` 契约，固化 Objective / Policy / Spec / Execution。
 2. `task_capsule.json`：当前任务最小上下文（范围、动作、失败窗口）。
-3. `evidence_template.json`：统一证据结构（Red/Green/Gate/Decision）。
+3. `evidence_template.json`：统一证据结构模板（Red/Green/Refactor/Gate/Review）。
+4. `evidence.latest.json`：当前任务最新证据快照。
+5. `review_card.latest.json`：标准化评审裁决卡（approved / manual_review_required / rejected）。
+
+同时，`.rpi-outfile/specs/l0/` 下的 `discovery/epic/spec/milestones/tasks` 也设计为可直接外发给其他 AI/编码工具消费：
+
+- `discovery.md`：范围、链路、DDD-Lite 语义边界
+- `spec.md`：契约、数据模型、关键流程、非功能预算
+- `tasks.md`：把已选 Must 链路拆成可执行任务
+- 这些文件应是业务化事实，而不是通用模板占位词
 
 建议对外部工具执行“裁决后置”：
 
@@ -335,6 +353,12 @@ winget install jq Python.Python.3 ripgrep    # Windows
 - 字段别名配置：`.claude/workflow/config/spec_aliases.json`（可按团队语言习惯扩展 discovery 字段标签）
 - 热路径优化：precode/spec-link 采用任务级签名缓存，仅在规范或配置变化时重校验
 - Stop Hook 输出遵循 Claude Code 当前 schema（使用顶层 `decision/reason`，不输出无效的 `hookSpecificOutput.Stop`）
+- PostToolUse Hook 已兼容 Claude Code CLI 当前 Bash payload：
+  - 优先读取 `exit_code/exitCode/...`
+  - 其次读取 `success/status/is_error/...`
+  - 再尝试读取 `transcript_path + tool_use_id`
+  - 最后回退到 `tool_response.stdout/stderr/interrupted` 推断
+- 目标：避免把成功 Bash 误记为 `exit_code=1`，保证 `events.jsonl` 与自治预算统计可信
 - 自治预算计数优先读取 `current_task.json` 累计计数，仅在缺失时回退日志扫描，减少热路径 IO
 - 选择策略：
   - `spec-source.json` 新于（或等于）`discovery/spec/tasks` 时，优先用 JSON 构建与校验
@@ -469,6 +493,24 @@ sequenceDiagram
     H4-->>AI: 检查闭环状态
 ```
 
+### 初始化产物
+
+初始化相关命令的职责边界：
+
+- `/rpi-init <idea>`
+  - 创建 `.rpi-outfile`
+  - 生成业务化 MVP skeleton
+  - 生成第一版业务化 `discovery.md / epic.md / spec.md / milestones.md / tasks.md`
+- `/rpi-init deepen`
+  - 输出 A/B/C 业务段差异
+  - 推荐 Must/Won't
+  - 回填 `discovery.md` 的方向、覆盖率、链路结论
+- `/rpi-spec expand`
+  - 锁定当前方向
+  - 按同一业务画像源重写 L0 规范
+  - 生成 `phases/m1.md`、`phases/m2.md`
+  - 刷新 portable contract 与 verify 配置
+
 ## 实际案例
 
 ### 案例 1：CLI 工具
@@ -477,6 +519,7 @@ sequenceDiagram
 # 初始化
 /rpi-init 我要做一个文件批量重命名 CLI 工具
 /rpi-init deepen  # 选择方向 A，确认链路 IDs（Must/Won't）与覆盖率
+/rpi-spec expand  # 实化 L0 规范与 phases
 
 # M0：链路覆盖 — 主链路 + 异常链路（权限/冲突）
 /rpi-task start 001
@@ -499,6 +542,7 @@ sequenceDiagram
 # 初始化（推荐 L1: contract.md）
 /rpi-init 我要做一个用户认证 API 服务
 /rpi-init deepen  # 选择方向，确认链路 IDs（L1/L2/L3）与覆盖率
+/rpi-spec expand
 
 # M0：链路覆盖 — 注册登录主链路 + Token 异常链路
 /rpi-task start 001
@@ -522,6 +566,7 @@ sequenceDiagram
 # 初始化（推荐 L1: frontend-ux + module-coordination）
 /rpi-init 我要做一个电商管理系统
 /rpi-init deepen  # 选择方向，确认链路 IDs（Must/Won't）与覆盖率
+/rpi-spec expand
 
 # 全局骨架阶段
 /rpi-check skeleton-init
@@ -604,6 +649,24 @@ graph LR
 <summary>Q: Hook 阻止我编辑代码？</summary>
 
 确保已执行 `/rpi-task start`，并且先运行失败测试（TDD Red 证据）。
+
+</details>
+
+<details>
+<summary>Q: /rpi-init 或 /rpi-spec expand 生成的内容为什么看起来像通用模板？</summary>
+
+当前实现会在 `init → deepen → spec expand` 三个阶段共享同一套业务画像推断。  
+如果你仍看到“核心记录/一线业务操作人员”等泛化词，通常说明原始 idea 过于抽象，缺少行业对象、用户角色、核心动作、明确不做项。  
+优先把一句话需求补成“角色 + 业务对象 + 核心动作 + 不做项”的形式后重跑初始化。
+
+</details>
+
+<details>
+<summary>Q: events.jsonl 里为什么会把成功 Bash 记成 exit_code=1？</summary>
+
+当前框架已兼容 Claude Code CLI 本地 Bash Hook payload 的多种形态。  
+如果你仍看到误判，先执行 `/rpi-check doctor`，再确认 `.claude/settings.json` 中 `PostToolUse` 指向 `bash .claude/workflow/rpi.sh hook-post-tool-use`。  
+真实兼容链路位于 [post_tool_use_core.py](/www/wwwroot/1/1.1/RPI/rpi-workflow/.claude/workflow/engine/post_tool_use_core.py)。
 
 </details>
 

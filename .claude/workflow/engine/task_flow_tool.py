@@ -245,6 +245,9 @@ def default_runtime() -> Dict[str, Any]:
         "auto_rpi_max_failures": 1,
         "auto_rpi_max_tool_events": 120,
         "auto_rpi_auto_fix": False,
+        "opsx_enabled": True,
+        "auto_rpi_run_review": True,
+        "review_decision_mode": "advisory",
         "agent_memory_auto_update": True,
         "agent_review_enabled": True,
         "a2a_auto_merge_non_core": True,
@@ -309,6 +312,18 @@ def write_idle_task(paths: Paths, phase: str = "M0") -> None:
         "autonomy": {
             "tool_event_count": 0,
             "last_tool_event_at": "",
+        },
+        "opsx": {
+            "enabled": True,
+            "contract_hash": "",
+            "last_contract_at": "",
+            "last_contract_transition": "",
+        },
+        "review": {
+            "last_status": "unknown",
+            "last_reviewed_at": "",
+            "last_decision_mode": "",
+            "last_card": "",
         },
         "guardrails": {"precode": {"status": "unknown", "signature": "", "verified_at": "", "note": ""}},
         "created_at": "",
@@ -619,11 +634,28 @@ def _phase_gate_policy(paths: Paths, phase: str) -> Dict[str, Any]:
 
 def _portable_evidence_template() -> Dict[str, Any]:
     return {
-        "version": 1,
+        "version": 2,
         "task_id": "",
         "phase": "M0",
         "summary": "",
         "spec_refs": [],
+        "opsx": {
+            "objective": {
+                "direction": "",
+                "abc_scope": "",
+                "coverage_target": "",
+            },
+            "policy": {
+                "tdd_mode": "recommended",
+                "precode_guard_mode": "warn",
+                "review_decision_mode": "advisory",
+            },
+            "execution": {
+                "transition": "",
+                "current_action": "",
+                "next_actions": [],
+            },
+        },
         "changes": [
             {
                 "path": "",
@@ -635,20 +667,32 @@ def _portable_evidence_template() -> Dict[str, Any]:
         "tdd_evidence": {
             "red": {
                 "command": "",
-                "status": "fail",
+                "status": "missing|fail|pass|not_required",
                 "excerpt": "",
+                "recorded_at": "",
             },
             "green": {
                 "command": "",
-                "status": "pass",
+                "status": "missing|fail|pass|not_required",
                 "excerpt": "",
+            },
+            "refactor": {
+                "status": "pending|pass",
+                "note": "",
             },
         },
         "gate_evidence": {
             "command": "bash .claude/workflow/rpi.sh gates run M0",
-            "status": "pass|fail",
+            "status": "pass|fail|unknown",
             "failed_gates": [],
         },
+        "review_evidence": {
+            "decision": "approved|manual_review_required|rejected|unknown",
+            "status": "pass|fail|unknown",
+            "card": ".rpi-outfile/state/agent-review/review_card.latest.json",
+            "summary": "",
+        },
+        "failure_window": [],
         "trace": {
             "event_refs": [],
             "gate_refs": [],
@@ -659,6 +703,14 @@ def _portable_evidence_template() -> Dict[str, Any]:
             "note": "",
         },
     }
+
+
+def _portable_review_card_path(paths: Paths) -> Path:
+    return paths.state_dir / "agent-review" / "review_card.latest.json"
+
+
+def _read_review_card(paths: Paths) -> Dict[str, Any]:
+    return read_json_obj(_portable_review_card_path(paths))
 
 
 def _mutation_policy(paths: Paths, task_id: str) -> Dict[str, Any]:
@@ -721,11 +773,18 @@ def write_portable_contract(
 
     gate_policy = _phase_gate_policy(paths, phase)
     discovery = _read_discovery_contract_summary(paths)
+    phase_state = task_payload.get("phase_state", {})
+    if not isinstance(phase_state, dict):
+        phase_state = {}
+    runtime_tdd_mode = str_value(runtime_get(runtime, "tdd_mode", "recommended"), "recommended")
+    runtime_precode_mode = str_value(runtime_get(runtime, "precode_guard_mode", "warn"), "warn")
+    review_decision_mode = str_value(runtime_get(runtime, "review_decision_mode", "advisory"), "advisory")
+    auto_rpi_run_review = bool_value(runtime_get(runtime, "auto_rpi_run_review", True), True)
+    opsx_enabled = bool_value(runtime_get(runtime, "opsx_enabled", True), True)
 
     contract = {
-        "contract_version": 1,
+        "contract_version": 2,
         "generated_at": utc_now(),
-        "transition": transition,
         "task": {
             "task_id": task_id,
             "phase": phase,
@@ -734,39 +793,56 @@ def write_portable_contract(
             "created_at": str_value(task_payload.get("created_at", ""), ""),
             "last_updated_at": str_value(task_payload.get("last_updated_at", ""), ""),
         },
-        "goal_scope": {
-            "direction": str_value(discovery.get("direction", ""), ""),
-            "abc_scope": str_value(discovery.get("abc_scope", ""), ""),
-            "coverage_target": str_value(discovery.get("coverage_target", ""), ""),
-            "weighted_coverage_target": str_value(discovery.get("weighted_coverage_target", ""), ""),
-            "m0_must": discovery.get("m0_must", []),
-            "m0_wont": discovery.get("m0_wont", []),
-            "success_metrics": discovery.get("success_metrics", []),
+        "opsx": {
+            "objective": {
+                "direction": str_value(discovery.get("direction", ""), ""),
+                "abc_scope": str_value(discovery.get("abc_scope", ""), ""),
+                "coverage_target": str_value(discovery.get("coverage_target", ""), ""),
+                "weighted_coverage_target": str_value(discovery.get("weighted_coverage_target", ""), ""),
+                "m0_must": discovery.get("m0_must", []),
+                "m0_wont": discovery.get("m0_wont", []),
+                "success_metrics": discovery.get("success_metrics", []),
+            },
+            "policy": {
+                "opsx_enabled": opsx_enabled,
+                "required_flow": ["Objective", "Policy", "Spec", "Execution"],
+                "must_bind_spec_refs_before_code_edit": True,
+                "tdd_mode": runtime_tdd_mode,
+                "precode_guard_mode": runtime_precode_mode,
+                "review_decision_mode": review_decision_mode,
+                "auto_rpi_run_review": auto_rpi_run_review,
+                "strict_mode": bool_value(runtime_get(runtime, "strict_mode", False), False),
+                "start_require_ready": bool_value(runtime_get(runtime, "start_require_ready", False), False),
+                "close_require_spec_sync": bool_value(runtime_get(runtime, "close_require_spec_sync", False), False),
+                "architecture_enforce": bool_value(runtime_get(runtime, "architecture_enforce", False), False),
+                "spec_link_enforce": bool_value(runtime_get(runtime, "spec_link_enforce", False), False),
+            },
+            "spec": {
+                "spec_refs": spec_refs,
+                "context_refs": context_refs,
+                "max_refs": 3,
+                "gate_policy": gate_policy,
+                "mutation_policy": _mutation_policy(paths, task_id),
+            },
+            "execution": {
+                "transition": transition,
+                "current_action": str_value(phase_state.get("current_action", ""), ""),
+                "next_actions": phase_state.get("next_actions", []) if isinstance(phase_state.get("next_actions"), list) else [],
+                "evidence_requirements": [
+                    "Provide failing test evidence before production code changes when tdd_mode != off.",
+                    "Provide passing test and gate evidence before task close.",
+                    "Every code change must reference one spec_ref or context_ref.",
+                    "Do not expand scope beyond m0_must without explicit phase or direction update.",
+                    "Run review before auto-merge or final handoff when review is enabled.",
+                ],
+                "artifact_refs": {
+                    "task_capsule": ".rpi-outfile/state/context/task_capsule.json",
+                    "evidence_template": ".rpi-outfile/state/portable/evidence_template.json",
+                    "evidence_latest": ".rpi-outfile/state/portable/evidence.latest.json",
+                    "review_card": ".rpi-outfile/state/agent-review/review_card.latest.json",
+                },
+            },
         },
-        "context_budget": {
-            "spec_refs": spec_refs,
-            "context_refs": context_refs,
-            "max_refs": 3,
-        },
-        "workflow_policy": {
-            "required_flow": ["Requirement", "Plan", "Implement"],
-            "must_bind_spec_refs_before_code_edit": True,
-            "tdd_mode": str_value(runtime_get(runtime, "tdd_mode", "recommended"), "recommended"),
-            "precode_guard_mode": str_value(runtime_get(runtime, "precode_guard_mode", "warn"), "warn"),
-            "strict_mode": bool_value(runtime_get(runtime, "strict_mode", False), False),
-            "start_require_ready": bool_value(runtime_get(runtime, "start_require_ready", False), False),
-            "close_require_spec_sync": bool_value(runtime_get(runtime, "close_require_spec_sync", False), False),
-            "architecture_enforce": bool_value(runtime_get(runtime, "architecture_enforce", False), False),
-            "spec_link_enforce": bool_value(runtime_get(runtime, "spec_link_enforce", False), False),
-        },
-        "gate_policy": gate_policy,
-        "mutation_policy": _mutation_policy(paths, task_id),
-        "evidence_requirements": [
-            "Provide failing test evidence before production code changes when tdd_mode != off.",
-            "Provide passing test/gate evidence before task close.",
-            "Every code change must reference one spec_ref or context_ref.",
-            "Do not expand scope beyond m0_must without explicit phase/direction update.",
-        ],
         "handoff": {
             "reason": reason,
             "result": result,
@@ -776,6 +852,8 @@ def write_portable_contract(
             "gate_log": ".rpi-outfile/logs/gate-results.jsonl",
             "task_capsule": ".rpi-outfile/state/context/task_capsule.json",
             "evidence_template": ".rpi-outfile/state/portable/evidence_template.json",
+            "evidence_latest": ".rpi-outfile/state/portable/evidence.latest.json",
+            "review_card": ".rpi-outfile/state/agent-review/review_card.latest.json",
         },
     }
     contract_hash = hashlib.sha256(json.dumps(contract, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
@@ -786,12 +864,29 @@ def write_portable_contract(
     contract_file = contract_dir / "contract.latest.json"
     write_json_atomic(contract_file, contract)
     write_json_atomic(contract_dir / "evidence_template.json", _portable_evidence_template())
+    _ = write_portable_evidence(
+        paths,
+        task_payload,
+        transition=transition,
+        reason=reason,
+        result=result,
+        root_cause=root_cause,
+        note=note,
+    )
+    task_payload.setdefault("opsx", {})
+    if isinstance(task_payload.get("opsx"), dict):
+        task_payload["opsx"]["enabled"] = opsx_enabled
+        task_payload["opsx"]["contract_hash"] = contract_hash
+        task_payload["opsx"]["last_contract_at"] = contract["generated_at"]
+        task_payload["opsx"]["last_contract_transition"] = transition
     write_json_atomic(
         contract_dir / "README.json",
         {
             "contract_file": ".rpi-outfile/state/portable/contract.latest.json",
             "evidence_template": ".rpi-outfile/state/portable/evidence_template.json",
-            "note": "Portable contract package for external AI/coding tools.",
+            "evidence_latest": ".rpi-outfile/state/portable/evidence.latest.json",
+            "review_card": ".rpi-outfile/state/agent-review/review_card.latest.json",
+            "note": "Portable OPSX contract package for external AI/coding tools.",
         },
     )
     return contract_file
@@ -846,6 +941,120 @@ def _recent_failure_window(paths: Paths, task_id: str, limit: int = 3) -> List[s
     return window
 
 
+def write_portable_evidence(
+    paths: Paths,
+    task_payload: Dict[str, Any],
+    *,
+    transition: str,
+    reason: str = "",
+    result: str = "",
+    root_cause: str = "",
+    note: str = "",
+) -> Path:
+    runtime = load_runtime(paths)
+    phase = normalize_phase(str_value(task_payload.get("phase", "M0"), "M0")) or "M0"
+    task_id = str_value(task_payload.get("task_id", ""), "")
+    discovery = _read_discovery_contract_summary(paths)
+    tdd = task_payload.get("tdd", {})
+    if not isinstance(tdd, dict):
+        tdd = {}
+    quality_gate = task_payload.get("quality_gate", {})
+    if not isinstance(quality_gate, dict):
+        quality_gate = {}
+    phase_state = task_payload.get("phase_state", {})
+    if not isinstance(phase_state, dict):
+        phase_state = {}
+
+    tdd_mode = str_value(runtime_get(runtime, "tdd_mode", "recommended"), "recommended")
+    review_mode = str_value(runtime_get(runtime, "review_decision_mode", "advisory"), "advisory")
+    red_written = bool_value(tdd.get("red_test_written", False), False)
+    red_status = "pass" if red_written else ("not_required" if tdd_mode == "off" else "missing")
+    latest_test_status = str_value(tdd.get("latest_test_status", "unknown"), "unknown")
+    green_status = latest_test_status if latest_test_status in {"pass", "fail"} else ("not_required" if tdd_mode == "off" else "missing")
+    gate_status = str_value(quality_gate.get("last_run_status", "unknown"), "unknown")
+
+    review_card = _read_review_card(paths)
+    review_task = review_card.get("task", {}) if isinstance(review_card.get("task"), dict) else {}
+    review_task_id = str_value(review_task.get("task_id", ""), "")
+    if (task_id and review_task_id and review_task_id != task_id) or (not task_id and transition != "reviewed"):
+        review_card = {}
+    review_decision = review_card.get("decision", {}) if isinstance(review_card.get("decision"), dict) else {}
+    review_result = str_value(review_decision.get("result", ""), "")
+    review_summary = str_value(review_decision.get("summary", ""), "")
+    review_status = "pass" if review_result == "approved" else ("fail" if review_result in {"manual_review_required", "rejected"} else "unknown")
+
+    evidence = {
+        "version": 2,
+        "generated_at": utc_now(),
+        "task_id": task_id,
+        "phase": phase,
+        "summary": note or reason or f"{transition}:{task_id or phase}",
+        "spec_refs": compact_ref_list(task_payload.get("spec_refs", []) if isinstance(task_payload.get("spec_refs"), list) else [], max_items=3),
+        "opsx": {
+            "objective": {
+                "direction": str_value(discovery.get("direction", ""), ""),
+                "abc_scope": str_value(discovery.get("abc_scope", ""), ""),
+                "coverage_target": str_value(discovery.get("coverage_target", ""), ""),
+            },
+            "policy": {
+                "tdd_mode": tdd_mode,
+                "precode_guard_mode": str_value(runtime_get(runtime, "precode_guard_mode", "warn"), "warn"),
+                "review_decision_mode": review_mode,
+            },
+            "execution": {
+                "transition": transition,
+                "current_action": str_value(phase_state.get("current_action", ""), ""),
+                "next_actions": phase_state.get("next_actions", []) if isinstance(phase_state.get("next_actions"), list) else [],
+            },
+        },
+        "changes": [],
+        "tdd_evidence": {
+            "red": {
+                "command": str_value(tdd.get("red_test_evidence", ""), ""),
+                "status": red_status,
+                "excerpt": "",
+                "recorded_at": str_value(tdd.get("red_test_at", ""), ""),
+            },
+            "green": {
+                "command": str_value(tdd.get("last_test_command", ""), ""),
+                "status": green_status,
+                "excerpt": "",
+            },
+            "refactor": {
+                "status": "pass" if green_status == "pass" else "pending",
+                "note": note,
+            },
+        },
+        "gate_evidence": {
+            "command": f"bash .claude/workflow/rpi.sh gates run {phase}",
+            "status": gate_status if gate_status else "unknown",
+            "failed_gates": _recent_failure_window(paths, task_id, limit=3) if gate_status == "fail" else [],
+        },
+        "review_evidence": {
+            "decision": review_result or "unknown",
+            "status": review_status,
+            "card": ".rpi-outfile/state/agent-review/review_card.latest.json",
+            "summary": review_summary,
+        },
+        "failure_window": _recent_failure_window(paths, task_id, limit=3),
+        "trace": {
+            "event_refs": [".rpi-outfile/logs/events.jsonl"],
+            "gate_refs": [".rpi-outfile/logs/gate-results.jsonl"],
+        },
+        "decision": {
+            "result": result or ("pass" if gate_status == "pass" else "unknown"),
+            "root_cause": root_cause or "unknown",
+            "note": note,
+        },
+    }
+
+    evidence_dir = _portable_contract_dir(paths)
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+    evidence_file = evidence_dir / "evidence.latest.json"
+    write_json_atomic(evidence_file, evidence)
+    return evidence_file
+
+
 def write_task_capsule(
     paths: Paths,
     task_payload: Dict[str, Any],
@@ -883,6 +1092,14 @@ def write_task_capsule(
     tdd = task_payload.get("tdd", {})
     if not isinstance(tdd, dict):
         tdd = {}
+    runtime = load_runtime(paths)
+    discovery = _read_discovery_contract_summary(paths)
+    review_card = _read_review_card(paths)
+    review_task = review_card.get("task", {}) if isinstance(review_card.get("task"), dict) else {}
+    review_task_id = str_value(review_task.get("task_id", ""), "")
+    if not task_id or (review_task_id and review_task_id != task_id):
+        review_card = {}
+    review_decision = review_card.get("decision", {}) if isinstance(review_card.get("decision"), dict) else {}
 
     capsule = {
         "version": 1,
@@ -902,6 +1119,13 @@ def write_task_capsule(
             "current_action": str_value(phase_state.get("current_action", ""), ""),
             "next_actions": phase_state.get("next_actions", []) if isinstance(phase_state.get("next_actions"), list) else [],
         },
+        "opsx": {
+            "direction": str_value(discovery.get("direction", ""), ""),
+            "abc_scope": str_value(discovery.get("abc_scope", ""), ""),
+            "coverage_target": str_value(discovery.get("coverage_target", ""), ""),
+            "tdd_mode": str_value(runtime_get(runtime, "tdd_mode", "recommended"), "recommended"),
+            "review_decision_mode": str_value(runtime_get(runtime, "review_decision_mode", "advisory"), "advisory"),
+        },
         "quality": {
             "result": result,
             "root_cause": root_cause,
@@ -911,6 +1135,8 @@ def write_task_capsule(
             "spec_edit_events": int_value(spec_edit_events, 0),
             "tdd_latest_status": str_value(tdd.get("latest_test_status", "unknown"), "unknown"),
             "quality_gate_status": str_value(quality_gate.get("last_run_status", "unknown"), "unknown"),
+            "review_decision": str_value(review_decision.get("result", ""), ""),
+            "review_summary": str_value(review_decision.get("summary", ""), ""),
         },
         "failure_window": _recent_failure_window(paths, task_id, limit=3),
     }
@@ -1285,6 +1511,9 @@ def cmd_profile(paths: Paths, argv: Sequence[str]) -> int:
                 "mvp_max_promote_non_core": int_value(raw.get("mvp_max_promote_non_core", 1), 1),
                 "precode_guard_mode": str_value(raw.get("precode_guard_mode", "enforce"), "enforce"),
                 "tdd_mode": str_value(raw.get("tdd_mode", "strict"), "strict"),
+                "opsx_enabled": bool_value(raw.get("opsx_enabled", True), True),
+                "auto_rpi_run_review": bool_value(raw.get("auto_rpi_run_review", True), True),
+                "review_decision_mode": str_value(raw.get("review_decision_mode", "advisory"), "advisory"),
                 "gates_auto_retry_enabled": bool_value(raw.get("gates_auto_retry_enabled", False), False),
                 "gates_auto_retry_max": int_value(raw.get("gates_auto_retry_max", 0), 0),
                 "auto_rpi_enabled": bool_value(raw.get("auto_rpi_enabled", False), False),
@@ -1863,6 +2092,18 @@ def cmd_start(paths: Paths, argv: Sequence[str]) -> int:
             "tool_event_count": 0,
             "last_tool_event_at": "",
         },
+        "opsx": {
+            "enabled": bool_value(runtime_get(runtime, "opsx_enabled", True), True),
+            "contract_hash": "",
+            "last_contract_at": "",
+            "last_contract_transition": "",
+        },
+        "review": {
+            "last_status": "unknown",
+            "last_reviewed_at": "",
+            "last_decision_mode": str_value(runtime_get(runtime, "review_decision_mode", "advisory"), "advisory"),
+            "last_card": "",
+        },
         "guardrails": {
             "precode": {
                 "status": precode_status,
@@ -1878,6 +2119,7 @@ def cmd_start(paths: Paths, argv: Sequence[str]) -> int:
     write_json_atomic(paths.current_task_file, task_payload)
     write_json_atomic(paths.phase_file, {"phase": phase, "spec_ratio": ratio, "updated_at": ts})
     contract_file = write_portable_contract(paths, task_payload, transition="started")
+    write_json_atomic(paths.current_task_file, task_payload)
     append_event(
         paths,
         {
