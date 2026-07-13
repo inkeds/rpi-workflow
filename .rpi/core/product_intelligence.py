@@ -287,7 +287,7 @@ def rebuild_current_facts(project_dir: Path, claims: Sequence[dict[str, Any]]) -
     )
 
 
-def cmd_status(project_dir: Path) -> int:
+def cmd_status(project_dir: Path, require_source: bool = False) -> int:
     out_dir = product_dir(project_dir)
     claims = read_json(out_dir / "claims.json", {"claims": []})["claims"]
     counts = {state: 0 for state in sorted(CLAIM_STATES)}
@@ -300,6 +300,8 @@ def cmd_status(project_dir: Path) -> int:
         "formal_spec_ready": counts.get("fact", 0) > 0 and counts.get("selected", 0) == 0,
     }
     print(json.dumps(payload, ensure_ascii=False, indent=2))
+    if require_source and payload["sources"] == 0:
+        return 2
     return 0
 
 
@@ -315,7 +317,8 @@ def build_parser() -> argparse.ArgumentParser:
     transition.add_argument("state", choices=sorted(CLAIM_STATES))
     transition.add_argument("--reason", required=True)
     transition.add_argument("--evidence", action="append", default=[])
-    sub.add_parser("status")
+    status = sub.add_parser("status")
+    status.add_argument("--require-source", action="store_true")
     return parser
 
 
@@ -328,7 +331,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "transition":
             return cmd_transition(project_dir, args.claim_id, args.state, args.reason, args.evidence)
         if args.command == "status":
-            return cmd_status(project_dir)
+            return cmd_status(project_dir, args.require_source)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2

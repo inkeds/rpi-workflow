@@ -282,7 +282,7 @@ def default_runtime() -> Dict[str, Any]:
     }
 
 
-def write_idle_task(path: Path, phase: str = "M0") -> None:
+def write_idle_task(path: Path, phase: str = "M-1") -> None:
     payload = {
         "task_id": "",
         "phase": phase,
@@ -335,7 +335,7 @@ def ensure_layout(paths: Paths) -> None:
     paths.log_dir.mkdir(parents=True, exist_ok=True)
     paths.config_dir.mkdir(parents=True, exist_ok=True)
     if not paths.phase_file.exists():
-        write_json(paths.phase_file, {"phase": "M0", "spec_ratio": "6:4", "updated_at": utc_now()})
+        write_json(paths.phase_file, {"phase": "M-1", "spec_ratio": "8:2", "updated_at": utc_now()})
     if not paths.current_task_file.exists():
         write_idle_task(paths.current_task_file, "M0")
     if not paths.task_stack_file.exists():
@@ -1588,8 +1588,11 @@ def cmd_bootstrap(paths: Paths, args: argparse.Namespace) -> int:
         write_json(
             gates_file,
             {
-                "phase_gates": {"M0": ["bootstrap_check"], "M1": ["bootstrap_check"], "M2": ["bootstrap_check"]},
-                "commands": {"bootstrap_check": "bash .claude/workflow/rpi.sh check bootstrap"},
+                "phase_gates": {"M-1": ["exploration_material_captured"], "M0": ["bootstrap_check"], "M1": ["bootstrap_check"], "M2": ["bootstrap_check"]},
+                "commands": {
+                    "exploration_material_captured": "bash .claude/workflow/rpi.sh idea status --require-source",
+                    "bootstrap_check": "bash .claude/workflow/rpi.sh check bootstrap",
+                },
                 "verify": {
                     "default": [
                         {"name": "discovery_complete", "command": "bash .claude/workflow/rpi.sh check discovery --quiet"},
@@ -1598,6 +1601,7 @@ def cmd_bootstrap(paths: Paths, args: argparse.Namespace) -> int:
                         {"name": "spec_state_valid", "command": "bash .claude/workflow/rpi.sh spec verify --scope all --quiet"},
                         {"name": "architecture_guard_passed", "command": "bash .claude/workflow/rpi.sh check architecture --quiet"},
                     ],
+                    "M-1": [],
                     "M0": [],
                     "M1": [],
                     "M2": [],

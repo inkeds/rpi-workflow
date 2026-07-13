@@ -1,5 +1,8 @@
 {
   "phase_gates": {
+    "M-1": [
+      "exploration_material_captured"
+    ],
     "M0": [
       "unit_tests",
       "lint"
@@ -20,6 +23,7 @@
     ]
   },
   "commands": {
+    "exploration_material_captured": "bash .claude/workflow/rpi.sh idea status --require-source",
     "unit_tests": "npm test",
     "integration_tests": "npm run test:integration",
     "e2e_tests": "npm run test:e2e",
@@ -50,6 +54,7 @@
         "command": "bash .claude/workflow/rpi.sh check ux --quiet"
       }
     ],
+    "M-1": [],
     "M0": [],
     "M1": [],
     "M2": []

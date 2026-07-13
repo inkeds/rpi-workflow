@@ -26,7 +26,7 @@ Usage: bash .claude/workflow/rpi.sh <subcommand> [args]
 
 Primary Subcommands:
   init [setup "<idea>" [platform] | deepen [idea] [platform] | bootstrap [--force] [<idea>] [platform]]
-  task <start|pause|resume|abort|close|phase|status> [args...]
+  task <start|pause|resume|abort|close|phase|status> [args...]  # phases: M-1/M0/M1/M2
   check <env|doctor|precode|bootstrap|discovery|contract|scope|ux|linkage|skeleton|skeleton-init|theory|entry|artifact|architecture|risk|full> [args...]
   spec <build|verify|sync|link|expand> [args...]
   gates <preview|setup|run> [args...]
@@ -320,7 +320,7 @@ run_idea_group() {
       run_product_intelligence transition "$claim_id" "$state" --reason "$reason" "${evidence_args[@]}"
       ;;
     status)
-      run_product_intelligence status
+      run_product_intelligence status "$@"
       ;;
     help|--help|-h)
       echo 'Usage: bash .claude/workflow/rpi.sh idea <capture|transition|status> [args...]'

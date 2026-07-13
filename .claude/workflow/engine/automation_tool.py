@@ -8,7 +8,7 @@ Subcommands:
 - anti-entropy [--auto-fix] [--strict] [--json]
 - build-audit-pack [--task <id>] [--output <dir>] [--tar] [--limit-events <n>]
 - audit-report [--task <id>] [--days <n>] [--output <dir>] [--json]
-- auto-rpi [--phase M0|M1|M2] [--max-rounds N] [--max-minutes M] [--max-failures N] [--max-tool-events N] [--auto-fix|--no-auto-fix] [--force]
+- auto-rpi [--phase M-1|M0|M1|M2] [--max-rounds N] [--max-minutes M] [--max-failures N] [--max-tool-events N] [--auto-fix|--no-auto-fix] [--force]
 - a2a-review [--base <ref>] [--head <ref>] [--auto-merge] [--quiet] [--json]
 - agent-memory-update [--task <id>] [--result <pass|fail>] [--root-cause <value>] [--note <text>] [--archive <file>] [--force] [--quiet]
 - abort-task "<reason>"
@@ -245,7 +245,7 @@ def deep_merge(base: Dict[str, Any], overlay: Dict[str, Any]) -> Dict[str, Any]:
 
 def normalize_phase(raw: str, default: str = "M0") -> str:
     value = (raw or "").upper().strip().replace(" ", "")
-    return value if value in {"M0", "M1", "M2"} else default
+    return value if value in {"M-1", "M0", "M1", "M2"} else default
 
 
 @dataclass
@@ -889,6 +889,7 @@ def cmd_suggest_gates(paths: Paths, argv: Sequence[str]) -> int:
             {"name": "spec_state_valid", "command": "bash .claude/workflow/rpi.sh spec verify --scope all --quiet"},
             {"name": "architecture_guard_passed", "command": "bash .claude/workflow/rpi.sh check architecture --quiet"},
         ],
+        "M-1": [],
         "M0": [],
         "M1": [],
         "M2": [],
@@ -898,8 +899,9 @@ def cmd_suggest_gates(paths: Paths, argv: Sequence[str]) -> int:
     if isinstance(existing_verify, dict):
         verify_json = existing_verify
 
+    commands["exploration_material_captured"] = "bash .claude/workflow/rpi.sh idea status --require-source"
     output = {
-        "phase_gates": {"M0": m0, "M1": m1, "M2": m2},
+        "phase_gates": {"M-1": ["exploration_material_captured"], "M0": m0, "M1": m1, "M2": m2},
         "commands": commands,
         "verify": verify_json,
     }
@@ -1499,7 +1501,7 @@ def cmd_auto_rpi(paths: Paths, argv: Sequence[str]) -> int:
             i += 1
             continue
         if token in {"--help", "-h"}:
-            safe_print("Usage: bash .claude/workflow/rpi.sh auto run [--phase M0|M1|M2] [--max-rounds N] [--max-minutes M] [--max-failures N] [--max-tool-events N] [--auto-fix|--no-auto-fix] [--force]")
+            safe_print("Usage: bash .claude/workflow/rpi.sh auto run [--phase M-1|M0|M1|M2] [--max-rounds N] [--max-minutes M] [--max-failures N] [--max-tool-events N] [--auto-fix|--no-auto-fix] [--force]")
             safe_print("")
             safe_print("Run controlled autonomous RPI loop:")
             safe_print("1) spec-build + spec-verify")
@@ -1515,7 +1517,7 @@ def cmd_auto_rpi(paths: Paths, argv: Sequence[str]) -> int:
         phase_data = read_json_obj(paths.base.phase_file)
         phase = str_value(phase_data.get("phase", "M0"), "M0")
     phase = normalize_phase(phase, "")
-    if phase not in {"M0", "M1", "M2"}:
+    if phase not in {"M-1", "M0", "M1", "M2"}:
         safe_print(f"Invalid phase: {phase}", stream=sys.stderr)
         return 1
 
@@ -2573,7 +2575,7 @@ def cmd_query_logs(paths: Paths, argv: Sequence[str]) -> int:
             safe_print("Options:")
             safe_print("  --task <task_id>       Filter by task ID")
             safe_print("  --event <event_type>   Filter by event type")
-            safe_print("  --phase <M0|M1|M2>     Filter by phase")
+            safe_print("  --phase <M-1|M0|M1|M2>     Filter by phase")
             safe_print("  --limit <n>            Limit output to n entries (default: 20)")
             safe_print("  --format <json|text>   Output format (default: text)")
             return 0
@@ -3728,7 +3730,7 @@ def markdown_materialized(path: Path) -> bool:
 def phase_artifact_status(paths: Paths) -> Dict[str, Any]:
     out: Dict[str, Any] = {}
     phase_dir = paths.base.spec_dir / "phases"
-    for phase in ("M0", "M1", "M2"):
+    for phase in ("M-1", "M0", "M1", "M2"):
         file = phase_dir / f"{phase.lower()}.md"
         exists = file.is_file()
         text = read_text_safe(file) if exists else ""
@@ -4232,7 +4234,7 @@ def materialize_l0_docs(
             f"- 建议技术栈：{tech_stack}",
             f"- 覆盖率目标：{coverage_target}",
             f"- 加权覆盖率目标：{weighted_target}",
-            f"- M0~M2 阶段扩展策略：M0={profile_phase_strategy(profile, 'M0')}；M1={profile_phase_strategy(profile, 'M1')}；M2={profile_phase_strategy(profile, 'M2')}",
+            f"- M-1~M2 阶段扩展策略：M-1=探索方向与关键能力；M0={profile_phase_strategy(profile, 'M0')}；M1={profile_phase_strategy(profile, 'M1')}；M2={profile_phase_strategy(profile, 'M2')}",
             "- 优先级调权：",
             "  - 默认不调权；若提升非核心能力，必须同步记录降权项与影响说明",
             "- M0 Must（1-3）：",
@@ -4351,29 +4353,34 @@ def materialize_l0_docs(
     milestone_lines: List[str] = [
         "# L0 Milestones",
         "",
-        "## M0",
-        f"- 目标：{profile_phase_strategy(profile, 'M0')}",
-        f"- 范围：{'; '.join(must_desc) if must_desc else '已选核心业务链路'}",
-        "- 交付：可运行系统、核心测试、可追溯日志",
-        "- 验收：M0 门控全通过",
-        "- 时长：2-4 周",
-        f"- 量化指标：{coverage_target}",
+        "## M-1 Explore",
+        f"- 产品结果：围绕“{idea}”形成一个可信候选方向",
+        "- 待验证假设：目标用户、核心问题、平台可行性与最高风险能力",
+        "- 工程证据：产品原型 / 能力原型 / 工程 Spike 及结论",
+        "- 退出条件：明确候选主链路、关键风险和继续/拆分/暂缓决策",
+        "- 非目标：不承诺生产实现，不将实验代码直接晋升为正式代码",
         "",
-        "## M1",
-        f"- 目标：{profile_phase_strategy(profile, 'M1')}",
+        "## M0 Validate",
+        f"- 产品结果：{profile_phase_strategy(profile, 'M0')}",
+        f"- 核心用户链路：{'; '.join(must_desc) if must_desc else '已选核心业务链路'}",
+        "- 工程证据：核心 Spec、Red/Green、关键 Eval 与可追溯日志",
+        "- 退出条件：真实核心链路可运行，用户价值证据和 M0 门控均通过",
+        f"- 范围指标：{coverage_target}",
+        "- 非目标：不为伪完整性提前建设所有平台和运营能力",
+        "",
+        "## M1 Stabilize",
+        f"- 产品结果：{profile_phase_strategy(profile, 'M1')}",
         f"- 范围：{m1_scope}",
-        "- 交付：稳定性增强、契约补全、集成验证",
-        "- 验收：关键路径持续稳定且可回归",
-        "- 时长：2-4 周",
-        "- 量化指标：关键路径失败率持续下降",
+        "- 工程证据：契约、异常路径、集成测试、Eval 回归与基础可观测",
+        "- 退出条件：关键路径可重复稳定运行，主要失败可恢复",
+        "- 非目标：不未经反馈证据扩张 Must",
         "",
-        "## M2",
-        f"- 目标：{profile_phase_strategy(profile, 'M2')}",
+        "## M2 Operate",
+        f"- 产品结果：{profile_phase_strategy(profile, 'M2')}",
         f"- 范围：{m2_scope}",
-        "- 交付：发布保障、可观测、审计证据链",
-        "- 验收：上线门禁全部通过",
-        "- 时长：1-3 周",
-        "- 量化指标：故障恢复演练通过率 100%",
+        "- 工程证据：发布保障、可观测、安全审计、容量与成本数据",
+        "- 退出条件：服务、恢复和变更过程可验证、可回退、可审计",
+        "- 非目标：不为不存在的规模模拟企业架构",
     ]
 
     task_lines: List[str] = ["# L0 Tasks", "", "## M0"]
@@ -4845,7 +4852,7 @@ def seed_discovery_conclusion(
     phase_strategy_aliases = spec_state_tool.aliases_for(
         alias_map,
         "phase_strategy",
-        ["M0~M2 阶段扩展策略", "Phase Strategy M0~M2"],
+        ["M-1~M2 阶段扩展策略", "Phase Strategy M-1~M2", "M0~M2 阶段扩展策略", "Phase Strategy M0~M2"],
     )
     profile = infer_business_profile(idea)
     segment_scope = profile_segment_scope(profile, direction)
@@ -5032,7 +5039,7 @@ def cmd_save_init_summary(paths: Paths, argv: Sequence[str]) -> int:
     verify_cfg = gates_cfg.get("verify", {})
     phase_gate_counts: Dict[str, int] = {}
     phase_verify_counts: Dict[str, int] = {}
-    for phase in ("M0", "M1", "M2"):
+    for phase in ("M-1", "M0", "M1", "M2"):
         gates_list = phase_gates.get(phase, []) if isinstance(phase_gates, dict) else []
         verify_list = verify_cfg.get(phase, []) if isinstance(verify_cfg, dict) else []
         phase_gate_counts[phase] = len(gates_list) if isinstance(gates_list, list) else 0
@@ -5089,12 +5096,12 @@ def cmd_save_init_summary(paths: Paths, argv: Sequence[str]) -> int:
 def cmd_switch_phase(paths: Paths, argv: Sequence[str]) -> int:
     ensure_layout(paths)
     if len(argv) < 2:
-        safe_print("Usage: bash .claude/workflow/rpi.sh task phase <M0|M1|M2> <reason>", stream=sys.stderr)
+        safe_print("Usage: bash .claude/workflow/rpi.sh task phase <M-1|M0|M1|M2> <reason>", stream=sys.stderr)
         return 1
     phase = argv[0]
     reason = " ".join(argv[1:]).strip()
-    if phase not in {"M0", "M1", "M2"}:
-        safe_print(f"Invalid phase: {phase} (must be M0|M1|M2)", stream=sys.stderr)
+    if phase not in {"M-1", "M0", "M1", "M2"}:
+        safe_print(f"Invalid phase: {phase} (must be M-1|M0|M1|M2)", stream=sys.stderr)
         return 1
 
     ts = utc_now()
@@ -5107,7 +5114,7 @@ def cmd_switch_phase(paths: Paths, argv: Sequence[str]) -> int:
     write_json_atomic(paths.base.current_task_file, current)
 
     append_event(paths, {"event": "phase_switch", "phase": phase, "reason": reason})
-    safe_print(f"Phase switched to {phase} (Vibe:Spec {ratio})")
+    safe_print(f"Phase switched to {phase} (Vibe:Spec reference {ratio})")
     return 0
 
 
@@ -5249,7 +5256,7 @@ def cmd_create_mvp(paths: Paths, argv: Sequence[str]) -> int:
     lines.append("")
     lines.append("## 5) ABC 业务段选择（范围轴，用户选 1 个）")
     lines.append("")
-    lines.append("> A/B/C 表示业务段选择，不等同于阶段深度；阶段深度由 M0/M1/M2 决定。")
+    lines.append("> A/B/C 表示业务段选择，不等同于阶段深度；阶段深度由 M-1/M0/M1/M2 决定。")
     lines.append("> 前端“完整可用 UX”仅针对已选 MVP Must 链路，不要求覆盖 Won't 或后续阶段功能。")
     lines.append("")
     lines.append("### 方向 A：选择 S0（MVP运营段）⭐ 推荐")
@@ -5377,7 +5384,8 @@ def cmd_create_mvp(paths: Paths, argv: Sequence[str]) -> int:
     lines.append(f"- S2 成熟期段：{str_value(segments.get('S2', '规模化功能+性能稳定'))}")
     lines.append(f"- S3 生态持续进化段：{str_value(segments.get('S3', '构建壁垒并探索新业务线'))}")
     lines.append("")
-    lines.append("## 14) M0~M2 阶段扩展（深度轴）")
+    lines.append("## 14) M-1~M2 阶段扩展（深度轴）")
+    lines.append("- M-1：探索产品方向、平台冲突和最高风险能力；实验代码不得直接晋升为正式实现。")
     lines.append("")
     lines.append(f"- M0：{profile_phase_strategy(profile, 'M0')}")
     lines.append(f"- M1：{profile_phase_strategy(profile, 'M1')}")
@@ -5387,7 +5395,7 @@ def cmd_create_mvp(paths: Paths, argv: Sequence[str]) -> int:
     lines.append("")
     lines.append("1. Epic：明确用户、问题、价值、成功指标、不做项，并记录 ABC 业务段选择结果。")
     lines.append("2. Spec：锁定架构边界、数据模型、接口契约、关键流程、非功能预算。")
-    lines.append("3. Milestone：定义 M0/M1/M2 的目标、范围、交付物、退出标准、时长。")
+    lines.append("3. Milestone：定义 M-1/M0/M1/M2 的产品结果、工程证据、范围、退出标准和非目标。")
     lines.append("4. Tasks：按阶段拆解执行任务、依赖关系、验收标准、负责人（可选）。")
     lines.append("")
     replacements = build_mvp_placeholder_replacements(
@@ -5530,7 +5538,7 @@ def cmd_deepen_mvp(paths: Paths, argv: Sequence[str]) -> int:
         safe_print(f"    Won't 候选：{', '.join(d_wont) if d_wont else '无'}")
     safe_print(f"- 推荐方向：{recommended}（业务段范围：{profile_segment_scope(profile, recommended)}）")
     safe_print(f"- 覆盖门槛 A/B/C = {cov_a}%/{cov_b}%/{cov_c}%")
-    safe_print(f"- M0~M2 阶段扩展：M0={profile_phase_strategy(profile, 'M0')}；M1={profile_phase_strategy(profile, 'M1')}；M2={profile_phase_strategy(profile, 'M2')}")
+    safe_print(f"- M-1~M2 阶段扩展：M-1=探索方向与关键能力；M0={profile_phase_strategy(profile, 'M0')}；M1={profile_phase_strategy(profile, 'M1')}；M2={profile_phase_strategy(profile, 'M2')}")
     safe_print(f"- 推荐 Must：{', '.join(selected_must)}")
     safe_print(f"- 推荐 Won't：{', '.join(selected_wont[:3])}")
     for row in must_details:
@@ -5728,7 +5736,7 @@ def cmd_spec_expand(paths: Paths, argv: Sequence[str]) -> int:
 def cmd_resolve_context_refs(paths: Paths, argv: Sequence[str]) -> int:
     if not argv:
         safe_print(
-            "Internal usage: resolve-context-refs <implement|check|debug> [spec_refs_csv] [M0|M1|M2] [task_id] (invoked by /rpi-task start)",
+            "Internal usage: resolve-context-refs <implement|check|debug> [spec_refs_csv] [M-1|M0|M1|M2] [task_id] (invoked by /rpi-task start)",
             stream=sys.stderr,
         )
         return 1

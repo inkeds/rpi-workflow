@@ -5,8 +5,8 @@ Subcommands:
 - profile [list|show|apply <profile>|<profile>]
 - start [args...]
 - close <pass|fail> <spec_missing|execution_deviation|both|unknown|auto> "<note>"
-- gates-auto [M0|M1|M2] [--max-retries N] [--auto-fix|--no-auto-fix] [--quiet]
-- quality-gate [M0|M1|M2]
+- gates-auto [M-1|M0|M1|M2] [--max-retries N] [--auto-fix|--no-auto-fix] [--quiet]
+- quality-gate [M-1|M0|M1|M2]
 - artifact-status [--json]
 """
 
@@ -130,7 +130,7 @@ def file_mtime(path: Path) -> int:
 
 def normalize_phase(raw: str) -> str:
     v = (raw or "").upper().strip().replace(" ", "")
-    return v if v in {"M0", "M1", "M2"} else ""
+    return v if v in {"M-1", "M0", "M1", "M2"} else ""
 
 
 def normalize_task_id(raw: str) -> str:
@@ -152,6 +152,8 @@ def normalize_task_id(raw: str) -> str:
 
 
 def phase_ratio(phase: str) -> str:
+    if phase == "M-1":
+        return "8:2"
     if phase == "M0":
         return "6:4"
     if phase == "M1":
@@ -283,7 +285,7 @@ def default_runtime() -> Dict[str, Any]:
     }
 
 
-def write_idle_task(paths: Paths, phase: str = "M0") -> None:
+def write_idle_task(paths: Paths, phase: str = "M-1") -> None:
     payload = {
         "task_id": "",
         "phase": phase,
@@ -341,10 +343,10 @@ def ensure_layout(paths: Paths) -> None:
     paths.config_dir.mkdir(parents=True, exist_ok=True)
 
     if not paths.phase_file.exists():
-        write_json_atomic(paths.phase_file, {"phase": "M0", "spec_ratio": "6:4", "updated_at": utc_now()})
+        write_json_atomic(paths.phase_file, {"phase": "M-1", "spec_ratio": "8:2", "updated_at": utc_now()})
 
     if not paths.current_task_file.exists():
-        write_idle_task(paths, "M0")
+        write_idle_task(paths, "M-1")
 
     if not paths.task_stack_file.exists():
         write_json_atomic(paths.task_stack_file, [])
@@ -636,7 +638,7 @@ def _portable_evidence_template() -> Dict[str, Any]:
     return {
         "version": 2,
         "task_id": "",
-        "phase": "M0",
+        "phase": "M-1",
         "summary": "",
         "spec_refs": [],
         "opsx": {
@@ -755,10 +757,10 @@ def write_portable_contract(
 ) -> Path:
     runtime = load_runtime(paths)
     phase = normalize_phase(str_value(task_payload.get("phase", ""), "")) or normalize_phase(
-        str_value(read_json_obj(paths.phase_file).get("phase", "M0"), "M0")
+        str_value(read_json_obj(paths.phase_file).get("phase", "M-1"), "M-1")
     )
-    if phase not in {"M0", "M1", "M2"}:
-        phase = "M0"
+    if phase not in {"M-1", "M0", "M1", "M2"}:
+        phase = "M-1"
     task_id = str_value(task_payload.get("task_id", ""), "")
     status = str_value(task_payload.get("status", "idle"), "idle")
 
@@ -952,7 +954,7 @@ def write_portable_evidence(
     note: str = "",
 ) -> Path:
     runtime = load_runtime(paths)
-    phase = normalize_phase(str_value(task_payload.get("phase", "M0"), "M0")) or "M0"
+    phase = normalize_phase(str_value(task_payload.get("phase", "M-1"), "M-1")) or "M-1"
     task_id = str_value(task_payload.get("task_id", ""), "")
     discovery = _read_discovery_contract_summary(paths)
     tdd = task_payload.get("tdd", {})
@@ -1073,7 +1075,7 @@ def write_task_capsule(
     capsule_file = cap_dir / "task_capsule.json"
 
     task_id = str_value(task_payload.get("task_id", ""), "")
-    phase = str_value(task_payload.get("phase", "M0"), "M0")
+    phase = str_value(task_payload.get("phase", "M-1"), "M-1")
     status = str_value(task_payload.get("status", "idle"), "idle")
     spec_refs_raw = task_payload.get("spec_refs", [])
     context_refs_raw = task_payload.get("context_refs", [])
@@ -1347,7 +1349,7 @@ def cmd_artifact_status(paths: Paths, argv: Sequence[str]) -> int:
 
 
 def extract_phase_from_text(raw: str) -> str:
-    m = re.search(r"M[0-2]", (raw or "").upper())
+    m = re.search(r"M-1|M[0-2]", (raw or "").upper())
     return m.group(0) if m else ""
 
 
@@ -1588,7 +1590,7 @@ def cmd_gates_auto(paths: Paths, argv: Sequence[str]) -> int:
     args = list(argv)
     while i < len(args):
         token = args[i]
-        if token in {"M0", "M1", "M2"}:
+        if token in {"M-1", "M0", "M1", "M2"}:
             phase = token
             i += 1
             continue
@@ -1612,7 +1614,7 @@ def cmd_gates_auto(paths: Paths, argv: Sequence[str]) -> int:
             i += 1
             continue
         if token in {"--help", "-h"}:
-            print("Usage: bash .claude/workflow/rpi.sh gates run [M0|M1|M2] [--max-retries N] [--auto-fix|--no-auto-fix] [--quiet]")
+            print("Usage: bash .claude/workflow/rpi.sh gates run [M-1|M0|M1|M2] [--max-retries N] [--auto-fix|--no-auto-fix] [--quiet]")
             print("")
             print("Run quality gate with bounded auto-retry and root-cause tagging.")
             return 0
@@ -1620,9 +1622,9 @@ def cmd_gates_auto(paths: Paths, argv: Sequence[str]) -> int:
         return 1
 
     if not phase:
-        phase = normalize_phase(str_value(read_json_obj(paths.phase_file).get("phase", "M0"), "M0")) or "M0"
-    if phase not in {"M0", "M1", "M2"}:
-        print(f"Invalid phase: {phase} (must be M0|M1|M2)", file=sys.stderr)
+        phase = normalize_phase(str_value(read_json_obj(paths.phase_file).get("phase", "M-1"), "M-1")) or "M-1"
+    if phase not in {"M-1", "M0", "M1", "M2"}:
+        print(f"Invalid phase: {phase} (must be M-1|M0|M1|M2)", file=sys.stderr)
         return 1
 
     retry_enabled = bool_value(runtime_get(runtime, "gates_auto_retry_enabled", False), False)
@@ -1706,9 +1708,9 @@ def cmd_gates_auto(paths: Paths, argv: Sequence[str]) -> int:
 
 def cmd_quality_gate(paths: Paths, argv: Sequence[str]) -> int:
     ensure_layout(paths)
-    phase = argv[0] if argv else normalize_phase(str_value(read_json_obj(paths.phase_file).get("phase", "M0"), "M0")) or "M0"
-    if phase not in {"M0", "M1", "M2"}:
-        print(f"Invalid phase: {phase} (must be M0|M1|M2)", file=sys.stderr)
+    phase = argv[0] if argv else normalize_phase(str_value(read_json_obj(paths.phase_file).get("phase", "M-1"), "M-1")) or "M-1"
+    if phase not in {"M-1", "M0", "M1", "M2"}:
+        print(f"Invalid phase: {phase} (must be M-1|M0|M1|M2)", file=sys.stderr)
         return 1
 
     config_file = paths.config_dir / "gates.json"
@@ -1717,7 +1719,7 @@ def cmd_quality_gate(paths: Paths, argv: Sequence[str]) -> int:
         return 1
     config = read_json_obj(config_file)
     phase_gates_raw = ((config.get("phase_gates") or {}).get(phase) or [])
-    verify_default = ((config.get("verify") or {}).get("default") or [])
+    verify_default = [] if phase == "M-1" else ((config.get("verify") or {}).get("default") or [])
     verify_phase = ((config.get("verify") or {}).get(phase) or [])
     if not isinstance(phase_gates_raw, list):
         phase_gates_raw = []
@@ -1872,7 +1874,7 @@ def cmd_start(paths: Paths, argv: Sequence[str]) -> int:
 
     if arg1 in {"--help", "-h", "help"}:
         print("Usage (explicit):")
-        print('  bash .claude/workflow/rpi.sh task start <task_id> <M0|M1|M2> "<spec1,spec2,...>" [owner]')
+        print('  bash .claude/workflow/rpi.sh task start <task_id> <M-1|M0|M1|M2> "<spec1,spec2,...>" [owner]')
         print("")
         print("Usage (auto-complete):")
         print("  bash .claude/workflow/rpi.sh task start 001")
@@ -1892,8 +1894,8 @@ def cmd_start(paths: Paths, argv: Sequence[str]) -> int:
     elif phase_from_text:
         phase = phase_from_text
     else:
-        phase = normalize_phase(str_value(read_json_obj(paths.phase_file).get("phase", "M0"), "M0")) or "M0"
-    if phase not in {"M0", "M1", "M2"}:
+        phase = normalize_phase(str_value(read_json_obj(paths.phase_file).get("phase", "M-1"), "M-1")) or "M-1"
+    if phase not in {"M-1", "M0", "M1", "M2"}:
         print(f"Invalid phase detected: {phase}", file=sys.stderr)
         return 1
 
@@ -1950,7 +1952,10 @@ def cmd_start(paths: Paths, argv: Sequence[str]) -> int:
             elif arg2:
                 owner = arg2
 
+    explicit_spec_refs = bool(spec_refs_csv.strip())
     spec_refs_csv = infer_spec_refs(paths, task_id, spec_refs_csv)
+    if phase == "M-1" and not explicit_spec_refs:
+        spec_refs_csv = ".rpi-outfile/product/sources.json,.rpi-outfile/product/claims.json"
 
     task_context_dir = paths.project_dir / ".rpi-outfile" / "specs" / "tasks" / task_id
     if not task_context_dir.exists():
@@ -1979,6 +1984,12 @@ def cmd_start(paths: Paths, argv: Sequence[str]) -> int:
     start_require_ready = bool_value(runtime_get(runtime, "start_require_ready", True), True)
     spec_state_required = bool_value(runtime_get(runtime, "spec_state_required", True), True)
     precode_guard_mode = str_value(runtime_get(runtime, "precode_guard_mode", "enforce"), "enforce")
+    if phase == "M-1":
+        # Explore tasks validate assumptions rather than formal implementation.
+        # Risk controls remain active, but apply-ready/spec-state requirements do not.
+        start_require_ready = False
+        spec_state_required = False
+        precode_guard_mode = "warn"
 
     if start_require_ready:
         rc_art, out_art, _ = run_task_flow_capture(paths, "artifact-status", ["--json"])
@@ -2164,7 +2175,7 @@ def cmd_close(paths: Paths, argv: Sequence[str]) -> int:
 
     current = read_json_obj(paths.current_task_file)
     task_id = str_value(current.get("task_id", ""), "")
-    phase = str_value(current.get("phase", "M0"), "M0")
+    phase = str_value(current.get("phase", "M-1"), "M-1")
     created_at = str_value(current.get("created_at", ""), "")
     if not task_id:
         print("No active task to close", file=sys.stderr)
@@ -2286,6 +2297,8 @@ def cmd_close(paths: Paths, argv: Sequence[str]) -> int:
     spec_sync_status, code_edit_events, spec_edit_events = calc_spec_sync_status(created_at)
     strict_mode = bool_value(runtime_get(runtime, "strict_mode", True), True)
     close_require_spec_sync = bool_value(runtime_get(runtime, "close_require_spec_sync", True), True)
+    if phase == "M-1":
+        close_require_spec_sync = False
     audit_pack_required_on_close = bool_value(runtime_get(runtime, "audit_pack_required_on_close", False), False)
     if close_require_spec_sync and spec_sync_status == "stale":
         if strict_mode:

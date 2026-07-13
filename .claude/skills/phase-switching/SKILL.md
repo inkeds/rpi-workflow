@@ -1,6 +1,6 @@
 ---
 name: phase-switching
-description: Switch project phase between M0, M1, and M2 with explicit reason and updated injection context. Use when milestones change or when quality/risk triggers require stronger spec control.
+description: Switch project phase between M-1 Explore, M0 Validate, M1 Stabilize, and M2 Operate with explicit reason and updated injection context.
 ---
 
 # Phase Switching
@@ -9,7 +9,7 @@ description: Switch project phase between M0, M1, and M2 with explicit reason an
 2. 执行切换：
 
 ```bash
-bash .claude/workflow/rpi.sh task phase <M0|M1|M2> "<reason>"
+bash .claude/workflow/rpi.sh task phase <M-1|M0|M1|M2> "<reason>"
 ```
 
 3. 检查阶段文件：`.rpi-outfile/state/project_phase.json`

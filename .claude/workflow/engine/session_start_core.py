@@ -65,8 +65,8 @@ def main() -> int:
     event_log = log_dir / "events.jsonl"
 
     phase_data = load_json_file(phase_file)
-    phase = str_value(phase_data.get("phase", "M0"), "M0")
-    ratio = str_value(phase_data.get("spec_ratio", "6:4"), "6:4")
+    phase = str_value(phase_data.get("phase", "M-1"), "M-1")
+    ratio = str_value(phase_data.get("spec_ratio", "8:2"), "8:2")
 
     current_task = load_json_file(current_task_file)
     task_id = str_value(current_task.get("task_id", ""))
@@ -88,7 +88,7 @@ def main() -> int:
 
     if task_id and status != "idle":
         msg = (
-            f"Workflow active. phase={phase} (Vibe:Spec {ratio}), task={task_id}, status={status}. "
+            f"Workflow active. phase={phase} (Vibe:Spec reference {ratio}), task={task_id}, status={status}. "
             "Continue RPI and close with gate evidence."
         )
     else:
@@ -98,23 +98,23 @@ def main() -> int:
             idea = str_value(init_summary.get("idea", ""))
             recommended = str_value(init_summary.get("recommended", "A"), "A")
             msg = (
-                f'Workflow active. phase={phase} (Vibe:Spec {ratio}). Init in progress: skeleton generated but direction not confirmed. '
+                f'Workflow active. phase={phase} (Vibe:Spec reference {ratio}). Init in progress: skeleton generated but direction not confirmed. '
                 f'Idea: "{idea}". Recommended direction: {recommended}. Resume with /rpi-init deepen.'
             )
         elif init_phase == "direction_confirmed":
             msg = (
-                f"Workflow active. phase={phase} (Vibe:Spec {ratio}). Init completed, direction confirmed. "
+                f"Workflow active. phase={phase} (Vibe:Spec reference {ratio}). Init completed, direction confirmed. "
                 "Continue with /rpi-spec expand or /rpi-task start."
             )
         else:
             if fact_count == 0:
                 msg = (
-                    f"Workflow active. phase={phase} (Vibe:Spec {ratio}). No active task and no promoted product facts. "
+                    f"Workflow active. phase={phase} (Vibe:Spec reference {ratio}). No active task and no promoted product facts. "
                     "Treat new input as source material; capture/analyze it before formal spec or implementation."
                 )
             else:
                 msg = (
-                    f"Workflow active. phase={phase} (Vibe:Spec {ratio}). No active task. "
+                    f"Workflow active. phase={phase} (Vibe:Spec reference {ratio}). No active task. "
                     f"Current product facts={fact_count}. Start an RPI task before editing code."
                 )
 

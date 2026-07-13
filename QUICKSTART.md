@@ -47,7 +47,22 @@ bash .claude/workflow/rpi.sh idea capture "<你的原始想法或复制的功能
 
 **期望输出**：显示平台信息和依赖状态。`jq` 为必需依赖，缺失时会报错并给出安装命令。`rg`（ripgrep）推荐安装，缺失时自动降级。
 
-## 步骤 2.5：选择 Harness 档位（可选，30 秒）
+## 步骤 2.5：确认探索阶段（可选，30 秒）
+
+新项目默认处于 `M-1 Explore`。此时可以运行产品原型、能力原型或工程 Spike，但实验代码不能未经正式 Spec + TDD 直接升级为产品代码。
+
+```bash
+bash .claude/workflow/rpi.sh task phase M-1 "验证产品方向和关键能力"
+bash .claude/workflow/rpi.sh gates run M-1
+```
+
+确认产品方向后切换到 M0：
+
+```bash
+bash .claude/workflow/rpi.sh task phase M0 "核心用户链路已确认"
+```
+
+## 步骤 2.6：选择 Harness 档位（可选，30 秒）
 
 ```bash
 /rpi-mode profile show
@@ -72,7 +87,7 @@ bash .claude/workflow/rpi.sh idea capture "<你的原始想法或复制的功能
 2. 需求闸门通过
 3. 生成完整 L0 基线（`discovery/spec/epic/milestones/tasks/00_master_spec`）
 4. 生成 `.rpi-outfile/specs/l0/mvp-skeleton.md`（骨架模板，含 `{{...}}` 占位符）
-5. MVP 骨架含 4 阶段画布、链路候选池、A/B/C 业务段选择（范围轴）、M0~M2 阶段扩展（深度轴）、覆盖率与不确定性预算、DDD-Lite 语义层
+5. MVP 骨架含 4 阶段画布、链路候选池、A/B/C 业务段选择（范围轴）、M-1~M2 阶段扩展（深度轴）、覆盖率与不确定性预算、DDD-Lite 语义层
 6. 提示执行 `/rpi-init deepen` 进行想法深化
 
 ## 步骤 3.5：想法深化（1 分钟）
@@ -83,7 +98,7 @@ bash .claude/workflow/rpi.sh idea capture "<你的原始想法或复制的功能
 
 **期望输出**：
 1. 将骨架中的 `{{...}}` 占位符替换为从设想推导的具体内容
-2. 输出方向 A/B/C（业务段选择）与 M0~M2 阶段扩展策略，推荐方向标注 ⭐
+2. 输出方向 A/B/C（业务段选择）与 M-1~M2 阶段扩展策略，推荐方向标注 ⭐
 3. 输出 P0 覆盖率与低置信度链路占比
 4. 输出 DDD-Lite 要素（统一语言、限界上下文、业务不变量、已选上下文）
 5. 如用户要求提升非核心功能，输出调权结论（提升项/降权项/理由/加权覆盖率目标）

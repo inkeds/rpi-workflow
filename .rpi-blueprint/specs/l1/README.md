@@ -96,7 +96,7 @@ Won't（本阶段明确不做）:
 - [ ] 故障恢复演练
 
 ## 整合到 spec.md
-> 将 M0/M1/M2 的 Must/Won't 同步到 `l0/milestones.md` 对应章节
+> 将 M-1/M0/M1/M2 的验证结论、Must/Won't 与工程证据同步到 `l0/milestones.md` 对应章节
 ```
 
 ---

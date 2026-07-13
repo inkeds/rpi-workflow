@@ -5,12 +5,12 @@ description: Initialize a deterministic RPI task record before any implementatio
 
 # RPI Task Starting
 
-1. 提取任务 ID、目标阶段（M0/M1/M2）和规范引用路径；允许稀疏输入（脚本自动补全）。
+1. 提取任务 ID、目标阶段（M-1/M0/M1/M2）和规范引用路径；允许稀疏输入（脚本自动补全）。
 2. 启动前确认 artifacts 已达到 apply-ready（discovery/spec/tasks done），严格模式下未就绪会阻断。
 2. 执行：
 
 ```bash
-bash .claude/workflow/rpi.sh task start <task_id> <M0|M1|M2> "<spec1,spec2,...>"
+bash .claude/workflow/rpi.sh task start <task_id> <M-1|M0|M1|M2> "<spec1,spec2,...>"
 ```
 
 3. 校验 `current_task.json`：

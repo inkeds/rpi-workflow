@@ -960,6 +960,8 @@ class PreToolUseCore:
         return None
 
     def enforce_tdd_for_path_if_needed(self, task_id: str, path: str, red_written: bool) -> Optional[Tuple[str, str]]:
+        if str_value(self.current_task.get("phase", ""), "") == "M-1":
+            return None
         if not is_code_path(path) or is_test_path(path):
             return None
 
@@ -986,6 +988,8 @@ class PreToolUseCore:
         )
 
     def enforce_tdd_for_bash_if_needed(self, task_id: str, cmd: str, red_written: bool) -> Optional[Tuple[str, str]]:
+        if str_value(self.current_task.get("phase", ""), "") == "M-1":
+            return None
         if red_written:
             return None
         if bash_command_is_test_command(cmd) or bash_command_targets_tests(cmd):
@@ -1049,6 +1053,7 @@ class PreToolUseCore:
         status = str_value(task_ctx.get("status", "idle"), "idle")
         spec_count = int_value(task_ctx.get("spec_count", 0), 0)
         red_written = bool_value(task_ctx.get("red_written", False), False)
+        is_explore = str_value(self.current_task.get("phase", ""), "") == "M-1"
 
         if not self.has_active_task(task_ctx):
             if planning_path:
@@ -1063,7 +1068,7 @@ class PreToolUseCore:
         if decision is not None:
             return decision
 
-        if is_code_path(target_path):
+        if is_code_path(target_path) and not is_explore:
             for check in (
                 self.enforce_spec_link_if_needed,
                 self.enforce_linkage_spec_if_needed,
@@ -1117,6 +1122,7 @@ class PreToolUseCore:
         task_id = str_value(task_ctx.get("task_id", ""))
         spec_count = int_value(task_ctx.get("spec_count", 0), 0)
         red_written = bool_value(task_ctx.get("red_written", False), False)
+        is_explore = str_value(self.current_task.get("phase", ""), "") == "M-1"
 
         if not self.has_active_task(task_ctx):
             reason = (
@@ -1132,15 +1138,16 @@ class PreToolUseCore:
         if decision is not None:
             return decision
 
-        for check in (
-            self.enforce_spec_link_if_needed,
-            self.enforce_linkage_spec_if_needed,
-            self.enforce_linkage_integrity_if_needed,
-            self.enforce_precode_guardrails_if_needed,
-        ):
-            decision = check(task_id, "command", cmd)
-            if decision is not None:
-                return decision
+        if not is_explore:
+            for check in (
+                self.enforce_spec_link_if_needed,
+                self.enforce_linkage_spec_if_needed,
+                self.enforce_linkage_integrity_if_needed,
+                self.enforce_precode_guardrails_if_needed,
+            ):
+                decision = check(task_id, "command", cmd)
+                if decision is not None:
+                    return decision
 
         if spec_count == 0:
             reason = (

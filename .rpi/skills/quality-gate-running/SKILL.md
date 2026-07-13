@@ -10,7 +10,7 @@ description: Run and enforce monorepo quality gates by phase. Use when validatin
 2. 按阶段运行门控：
 
 ```bash
-bash .claude/workflow/rpi.sh gates run [M0|M1|M2]
+bash .claude/workflow/rpi.sh gates run [M-1|M0|M1|M2]
 ```
 
 3. 失败即阻断，不允许以“建议通过”替代。

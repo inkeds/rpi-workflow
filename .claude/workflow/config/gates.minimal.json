@@ -1,10 +1,14 @@
 {
   "phase_gates": {
+    "M-1": [
+      "exploration_material_captured"
+    ],
     "M0": ["bootstrap_check"],
     "M1": ["bootstrap_check"],
     "M2": ["bootstrap_check"]
   },
   "commands": {
+    "exploration_material_captured": "bash .claude/workflow/rpi.sh idea status --require-source",
     "bootstrap_check": "bash .claude/workflow/rpi.sh check bootstrap"
   },
   "verify": {
@@ -30,6 +34,7 @@
         "command": "bash .claude/workflow/rpi.sh check architecture --quiet"
       }
     ],
+    "M-1": [],
     "M0": [],
     "M1": [],
     "M2": []

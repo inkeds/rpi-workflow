@@ -196,8 +196,8 @@ def main() -> int:
     current_task = load_json_file(current_task_file)
     runtime = load_json_file(runtime_file)
 
-    phase = str_value(phase_data.get("phase", "M0"), "M0")
-    ratio = str_value(phase_data.get("spec_ratio", "6:4"), "6:4")
+    phase = str_value(phase_data.get("phase", "M-1"), "M-1")
+    ratio = str_value(phase_data.get("spec_ratio", "8:2"), "8:2")
     phase_check_file = injection_dir / f"{phase.lower()}.md"
 
     task_id = str_value(current_task.get("task_id", ""))
@@ -223,7 +223,7 @@ def main() -> int:
 
     message = (
         "[RPI Strong Injection]\n"
-        f"- phase: {phase} (Vibe:Spec {ratio})\n"
+        f"- phase: {phase} (Vibe:Spec reference {ratio}; not a mechanical quality score)\n"
         f"- active_task: {task_id if task_id else 'none'}\n"
         f"- task_status: {status}\n"
         f"- current_action: {current_action}\n"

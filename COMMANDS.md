@@ -136,7 +136,7 @@ bash .claude/workflow/rpi.sh init bootstrap [--force] [idea] [platform]
 语法（推荐显式）：
 
 ```bash
-/rpi-task start <task_id> <M0|M1|M2> "<spec_ref1,spec_ref2,...>" [owner]
+/rpi-task start <task_id> <M-1|M0|M1|M2> "<spec_ref1,spec_ref2,...>" [owner]
 ```
 
 语法（简写）：
@@ -152,7 +152,7 @@ bash .claude/workflow/rpi.sh init bootstrap [--force] [idea] [platform]
 | 参数 | 含义 | 默认值 |
 |---|---|---|
 | `<task_id>` | 任务号，可写 `001`/`TASK-001` | 自动从 `tasks.md` 推断首个任务，否则 `TASK-001` |
-| `<M0|M1|M2>` | 目标阶段 | 当前 `project_phase` |
+| `<M-1|M0|M1|M2>` | 目标阶段 | 当前 `project_phase` |
 | `"<spec_refs_csv>"` | 逗号分隔 spec 引用（支持 `#锚点`） | 自动推断 |
 | `[owner]` | 任务负责人标识 | `claude` |
 
@@ -250,7 +250,7 @@ bash .claude/workflow/rpi.sh init bootstrap [--force] [idea] [platform]
 语法：
 
 ```bash
-/rpi-task phase <M0|M1|M2> <reason>
+/rpi-task phase <M-1|M0|M1|M2> <reason>
 ```
 
 ### 2.7 status
@@ -523,14 +523,14 @@ bash .claude/workflow/rpi.sh init bootstrap [--force] [idea] [platform]
 语法：
 
 ```bash
-/rpi-gates run [M0|M1|M2] [--max-retries N] [--auto-fix|--no-auto-fix] [--quiet]
+/rpi-gates run [M-1|M0|M1|M2] [--max-retries N] [--auto-fix|--no-auto-fix] [--quiet]
 ```
 
 参数：
 
 | 参数 | 含义 | 默认值 |
 |---|---|---|
-| `[M0|M1|M2]` | 指定执行阶段 | 当前阶段 |
+| `[M-1|M0|M1|M2]` | 指定执行阶段 | 当前阶段 |
 | `--max-retries N` | 失败自动重试次数 | 取 runtime（若未启用重试则强制 0） |
 | `--auto-fix` | 失败后尝试自动修复 | 按 runtime |
 | `--no-auto-fix` | 禁用自动修复 | 按 runtime |
@@ -605,7 +605,7 @@ bash .claude/workflow/rpi.sh init bootstrap [--force] [idea] [platform]
 语法：
 
 ```bash
-/rpi-observe logs [--task <task_id>] [--event <event>] [--phase <M0|M1|M2>] [--limit <n>] [--format json|text]
+/rpi-observe logs [--task <task_id>] [--event <event>] [--phase <M-1|M0|M1|M2>] [--limit <n>] [--format json|text]
 ```
 
 参数：
@@ -712,7 +712,7 @@ bash .claude/workflow/rpi.sh init bootstrap [--force] [idea] [platform]
 语法：
 
 ```bash
-/rpi-auto run [--phase M0|M1|M2] [--max-rounds N] [--max-minutes M] [--max-failures N] [--max-tool-events N] [--auto-fix|--no-auto-fix] [--force]
+/rpi-auto run [--phase M-1|M0|M1|M2] [--max-rounds N] [--max-minutes M] [--max-failures N] [--max-tool-events N] [--auto-fix|--no-auto-fix] [--force]
 ```
 
 参数：
