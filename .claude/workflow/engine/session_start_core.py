@@ -61,6 +61,7 @@ def main() -> int:
     phase_file = state_dir / "project_phase.json"
     current_task_file = state_dir / "current_task.json"
     init_summary_file = state_dir / "init_summary.json"
+    product_facts_file = output_dir / "product" / "current_facts.json"
     event_log = log_dir / "events.jsonl"
 
     phase_data = load_json_file(phase_file)
@@ -70,6 +71,8 @@ def main() -> int:
     current_task = load_json_file(current_task_file)
     task_id = str_value(current_task.get("task_id", ""))
     status = str_value(current_task.get("status", "idle"), "idle")
+    product_facts = load_json_file(product_facts_file)
+    fact_count = len(product_facts.get("facts", [])) if isinstance(product_facts.get("facts", []), list) else 0
 
     append_event(
         log_dir,
@@ -104,7 +107,16 @@ def main() -> int:
                 "Continue with /rpi-spec expand or /rpi-task start."
             )
         else:
-            msg = f"Workflow active. phase={phase} (Vibe:Spec {ratio}). No active task. Start with /rpi-task start before editing code."
+            if fact_count == 0:
+                msg = (
+                    f"Workflow active. phase={phase} (Vibe:Spec {ratio}). No active task and no promoted product facts. "
+                    "Treat new input as source material; capture/analyze it before formal spec or implementation."
+                )
+            else:
+                msg = (
+                    f"Workflow active. phase={phase} (Vibe:Spec {ratio}). No active task. "
+                    f"Current product facts={fact_count}. Start an RPI task before editing code."
+                )
 
     # Keep SessionStart output schema-safe across CLI versions.
     print(json.dumps({"systemMessage": msg}, ensure_ascii=False))

@@ -1,6 +1,6 @@
 # RPI Workflow
 
-> Vibe-Spec + RPI 双核心驱动的 Claude Code AI 开发工作流框架
+> 面向普通创意者、由 Spec + TDD + Eval 驱动的跨 Agent 产品定义与可靠交付系统
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -25,33 +25,62 @@
 
 ## 简介
 
-RPI Workflow 通过 Hook 机制和规范分层，将 Claude Code 的 AI 辅助编码从"概率正确"收敛为"确定正确"。
+RPI Workflow 接收模糊、复制、跨平台甚至互相冲突的创意素材，先区分原始输入、系统推断、待验证假设和当前产品事实，再通过 Spec、TDD、Eval、Hook 与质量门控，将不可控生成收敛为可验证、可追溯、可回退的工程交付。
+
+RPI Core 与具体 Agent 解耦；Claude Code 和 Codex CLI 通过各自 Adapter 使用同一产品事实、Spec、任务与证据协议。
 
 **解决什么问题：**
 
+- 用户输入不是可靠需求 → 原始素材保真 + 主张成熟度 + 冲突/平台分析
+- 普通用户不懂产品和技术 → 用户只做价值与体验取舍，RPI 负责工程翻译
 - AI 实现随机性高 → 通过 RPI 三步闭环 + TDD 约束收敛
+- AI 输出非确定 → 通过固定 Eval、成本/延迟与模型升级回归验证
 - 规范与实现漂移 → 通过强制回写 + spec 同步检查
 - 上下文噪声 → 通过 Context Pack 分阶段精准注入
 - 缺乏执行留痕 → 通过事件日志 + 根因分类实现全链路追溯
 - 前端 UX 失控 → 通过 UX 规范模板 + 标杆模块机制（可选）
 - 多模块联动断裂 → 通过全局骨架 + 联动完整性检查（可选）
 - Hook 热路径开销高 → 通过任务级签名缓存 + 增量校验降低重复检查成本
-- 跨模型/跨工具协作偏移 → 通过 `portable contract + task capsule` 固化可执行约束
+- 跨模型/跨工具协作偏移 → RPI Core + Claude/Codex Adapter + portable contract
 
 ## 快速开始
 
 ### 前置条件
 
-- 已安装 [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code)
+- 已安装 Claude Code CLI 或 Codex CLI（也可同时安装）
 - 已安装 `jq`（必需）
+- 已安装 Python 3（必需）
 
 ### 安装
 
 ```bash
 # 复制框架到你的项目
 cp -r /path/to/rpi-workflow/.claude ~/my-project/
+cp -r /path/to/rpi-workflow/.rpi ~/my-project/
+cp -r /path/to/rpi-workflow/.agents ~/my-project/
+cp -r /path/to/rpi-workflow/.codex ~/my-project/
 cp /path/to/rpi-workflow/CLAUDE.md ~/my-project/
+cp /path/to/rpi-workflow/AGENTS.md ~/my-project/
 ```
+
+```bash
+bash .claude/workflow/rpi.sh compat setup
+bash .claude/workflow/rpi.sh compat doctor
+```
+
+Codex 项目配置和 Hook 仅在仓库受信任、Hook 已审核后生效；Claude 项目级能力同样受 Workspace Trust 约束。RPI 会报告降级状态，不应静默跳过门控。
+
+### 从混乱创意开始
+
+```bash
+bash .claude/workflow/rpi.sh idea capture \
+  "做一个无需安装的网页工具，可以实时监控所有 Windows 应用流量并支持团队在线协作" \
+  copied_description
+
+bash .claude/workflow/rpi.sh idea status
+```
+
+原始素材不会直接成为正式需求。RPI 会识别营销词、隐含平台、冲突和待审查主张；只有带证据晋升为 `fact` 的内容才进入当前产品事实源。
 
 ### 7 步上手
 
@@ -162,6 +191,14 @@ Vibe（收敛价值） → Spec（锁定边界） → RPI（确定执行） → 
 - **P（Plan）** — 拆任务、列测试、定义验收
 - **I（Implement）** — TDD 实现（Red → Green → Refactor），执行质量门控
 
+**产品事实形成模型：**
+
+```text
+raw → inferred → hypothesis → selected/validated → fact
+```
+
+正式实现之前先形成可信 Spec；进入正式实现后，Spec + TDD 是硬约束而不是可选建议。
+
 ## 跨工具协同
 
 框架在关键节点（`spec expand`、`task start/pause/resume/close/abort`）会自动刷新：
@@ -211,6 +248,13 @@ Vibe（收敛价值） → Spec（锁定边界） → RPI（确定执行） → 
 | `/rpi-observe` | 观测审计（logs/trace/evals/audit-pack/audit-report/recover） | `/rpi-observe logs --task TASK-001` |
 | `/rpi-auto` | 自动化（run/review/memory/entropy） | `/rpi-auto entropy --strict` |
 
+底层 CLI 另提供两个平台无关入口：
+
+| 命令组 | 作用 | 示例 |
+|------|------|------|
+| `idea` | 保存素材、审查主张和管理事实晋升 | `rpi.sh idea capture "<素材>"` |
+| `compat` | 生成并检查 Codex/Claude Adapter | `rpi.sh compat setup` |
+
 ### 常用动作速查
 
 | 场景 | 命令 |
@@ -237,6 +281,9 @@ Vibe（收敛价值） → Spec（锁定边界） → RPI（确定执行） → 
 
 ```
 rpi-workflow/
+├── .rpi/                 # 平台无关 Core、Schema、Skill 源和 Adapter
+├── .agents/skills/       # Codex 项目 Skills（生成产物）
+├── .codex/               # Codex 配置与 Hooks（生成产物）
 ├── .claude/
 │   ├── commands/          # 斜杠命令
 │   │                       # 主命令面：init/task/check/spec/gates/mode/observe/auto
@@ -258,13 +305,16 @@ rpi-workflow/
 │       ├── l2/            # 工程护栏（engineering-guardrails）
 │       └── phases/        # 阶段定义（m0/m1/m2）
 ├── .gitignore
-├── CLAUDE.md              # AI 记忆入口
+├── AGENTS.md              # 跨 Agent 公共入口
+├── CLAUDE.md              # Claude Adapter，导入 AGENTS.md
+├── COMPATIBILITY.md       # Codex / Claude 兼容说明
 ├── QUICKSTART.md          # 快速上手
 ├── prd.md                 # 产品需求文档
 └── README.md              # 本文件
 ```
 
 > `.rpi-outfile/` 是运行时产物（已在 `.gitignore` 中排除），由使用框架的项目自动生成，不属于框架本身。
+> `.rpi/` 是实现源，`.rpi-outfile/` 是运行事实源；`.claude/`、`.codex/`、`.agents/` 是平台适配面。
 > `.rpi-outfile/` 的创建时机为初始化创建步骤之后（通常是 `/rpi-init <idea>` 或 `rpi.sh init setup ...`）。
 > 初始化前建议阅读 `.rpi-blueprint/specs`；初始化后建议优先消费 `.rpi-outfile/state/*` 与 `.rpi-outfile/specs/*`。
 > 当命令会覆盖关键规范文件时，框架会自动快照到 `.rpi-outfile/state/recovery/snapshots/`，索引在 `.rpi-outfile/state/recovery/index.jsonl`，可通过 `/rpi-observe recover` 查看与恢复。

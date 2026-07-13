@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rpi.local/schemas/hook-result.schema.json",
+  "title": "RPI Hook Result",
+  "type": "object",
+  "required": ["action", "reason", "context", "evidence", "retryable"],
+  "properties": {
+    "action": {
+      "enum": ["allow", "deny", "ask", "defer", "observe"]
+    },
+    "reason": {"type": "string"},
+    "context": {"type": "object"},
+    "evidence": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "retryable": {"type": "boolean"}
+  },
+  "additionalProperties": false
+}

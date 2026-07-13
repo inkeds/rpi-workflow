@@ -1,10 +1,12 @@
 # CLAUDE.md
 
-本文件是项目唯一主记忆入口（Single Entry）。
+@AGENTS.md
+
+本文件是 Claude Code 适配入口；跨平台公共约束以 `AGENTS.md` 为准。
 
 ## 加载顺序
 
-1. 先读本文件。
+1. 先读导入的 `AGENTS.md` 与本文件。
 2. 再按顺序执行分层规则：
    - `.claude/rules/00-foundation.md`
    - `.claude/rules/01-spec-layering.md`

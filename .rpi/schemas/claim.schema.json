@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rpi.local/schemas/claim.schema.json",
+  "title": "RPI Product Claim",
+  "type": "object",
+  "required": ["id", "source_ids", "text", "state", "evidence", "created_at", "updated_at"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^CLM-"},
+    "source_ids": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "text": {"type": "string", "minLength": 1},
+    "state": {
+      "enum": ["raw", "inferred", "hypothesis", "selected", "validated", "fact", "rejected", "expired", "superseded"]
+    },
+    "confidence": {"enum": ["low", "medium", "high"]},
+    "evidence": {"type": "array", "items": {"type": "string"}},
+    "applicable_scope": {"type": "string"},
+    "review_after": {"type": ["string", "null"]},
+    "supersedes": {"type": "array", "items": {"type": "string"}},
+    "superseded_by": {"type": ["string", "null"]},
+    "created_at": {"type": "string"},
+    "updated_at": {"type": "string"}
+  }
+}

@@ -1,10 +1,10 @@
 # 快速上手指南（5 分钟）
 
-本指南帮助你在 5 分钟内跑通第一个 RPI 任务闭环。
+本指南帮助你从一段原始创意素材开始，并跑通第一个 RPI 任务闭环。
 
 ## 前置条件
 
-- 已安装 Claude Code CLI
+- 已安装 Claude Code CLI 或 Codex CLI
 - 项目目录已初始化 git（可选但推荐）
 
 ## 步骤 1：复制框架到项目（30 秒）
@@ -15,8 +15,29 @@ cd ~/my-project
 
 # 复制 rpi-workflow 框架
 cp -r /path/to/rpi-workflow/.claude .
+cp -r /path/to/rpi-workflow/.rpi .
+cp -r /path/to/rpi-workflow/.agents .
+cp -r /path/to/rpi-workflow/.codex .
+cp /path/to/rpi-workflow/AGENTS.md .
 cp /path/to/rpi-workflow/CLAUDE.md .
 ```
+
+## 步骤 1.5：配置当前 Agent（30 秒）
+
+```bash
+bash .claude/workflow/rpi.sh compat setup
+bash .claude/workflow/rpi.sh compat doctor
+```
+
+Codex 需要信任项目并在 `/hooks` 中审核项目 Hook；Claude Code 需要接受 Workspace Trust。未启用时 RPI 会以降级状态运行。
+
+## 步骤 1.6：保存原始创意（30 秒）
+
+```bash
+bash .claude/workflow/rpi.sh idea capture "<你的原始想法或复制的功能描述>" unknown
+```
+
+这一步只保存和分析素材，不会直接形成正式 PRD。出现跨平台冲突、营销性描述或高不确定性时，应先选择方向或运行原型验证。
 
 ## 步骤 2：环境检查（30 秒）
 

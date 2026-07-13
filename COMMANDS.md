@@ -2,6 +2,30 @@
 
 本文基于当前仓库实现（`.claude/workflow/rpi.sh` + `engine/*.py`）整理，覆盖所有对外命令组与子命令参数。
 
+## 平台无关入口
+
+### 创意素材与产品事实
+
+```bash
+bash .claude/workflow/rpi.sh idea capture "<raw material>" [source_type]
+bash .claude/workflow/rpi.sh idea status
+bash .claude/workflow/rpi.sh idea transition <claim_id> <state> "<reason>" [evidence...]
+```
+
+- `capture` 保留用户原文并生成可审查的 `inferred` 主张。
+- `transition` 管理主张状态；晋升为 `validated` 或 `fact` 必须提供证据引用。
+- 当前事实输出到 `.rpi-outfile/product/current_facts.json`。
+
+### Codex / Claude Adapter
+
+```bash
+bash .claude/workflow/rpi.sh compat setup
+bash .claude/workflow/rpi.sh compat doctor
+```
+
+- `setup` 从 `.rpi/skills` 生成两端 Skills，并生成 Codex Hooks。
+- `doctor` 检查 CLI、Adapter 和共享 Core；项目信任和 Hook 审核仍由对应 CLI 管理。
+
 ## 使用约定
 
 - Claude Code 对话里优先使用斜杠命令：`/rpi-xxx ...`

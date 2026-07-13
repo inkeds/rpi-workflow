@@ -1,0 +1,66 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.rpi/adapters/hook_bridge.py\" --platform codex --event SessionStart --project-dir \"$(git rev-parse --show-toplevel)\"",
+            "timeout": 25,
+            "statusMessage": "RPI SessionStart"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.rpi/adapters/hook_bridge.py\" --platform codex --event UserPromptSubmit --project-dir \"$(git rev-parse --show-toplevel)\"",
+            "timeout": 25,
+            "statusMessage": "RPI UserPromptSubmit"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.rpi/adapters/hook_bridge.py\" --platform codex --event PreToolUse --project-dir \"$(git rev-parse --show-toplevel)\"",
+            "timeout": 25,
+            "statusMessage": "RPI PreToolUse"
+          }
+        ],
+        "matcher": "Bash|Edit|Write|MultiEdit|exec_command|apply_patch"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.rpi/adapters/hook_bridge.py\" --platform codex --event PostToolUse --project-dir \"$(git rev-parse --show-toplevel)\"",
+            "timeout": 25,
+            "statusMessage": "RPI PostToolUse"
+          }
+        ],
+        "matcher": "Bash|Edit|Write|MultiEdit|exec_command|apply_patch"
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.rpi/adapters/hook_bridge.py\" --platform codex --event Stop --project-dir \"$(git rev-parse --show-toplevel)\"",
+            "timeout": 25,
+            "statusMessage": "RPI Stop"
+          }
+        ]
+      }
+    ]
+  }
+}

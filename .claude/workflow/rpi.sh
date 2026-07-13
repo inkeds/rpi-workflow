@@ -10,6 +10,8 @@ TASK_FLOW_ENGINE="$ENGINE_DIR/task_flow_tool.py"
 GUARDRAILS_ENGINE="$ENGINE_DIR/guardrails_tool.py"
 SPEC_STATE_ENGINE="$ENGINE_DIR/spec_state_tool.py"
 AUTOMATION_ENGINE="$ENGINE_DIR/automation_tool.py"
+PRODUCT_INTELLIGENCE_ENGINE="$PROJECT_DIR/.rpi/core/product_intelligence.py"
+ADAPTER_ENGINE="$PROJECT_DIR/.rpi/core/adapter_tool.py"
 
 SESSION_START_CORE="$ENGINE_DIR/session_start_core.py"
 USER_PROMPT_SUBMIT_CORE="$ENGINE_DIR/user_prompt_submit_core.py"
@@ -31,6 +33,8 @@ Primary Subcommands:
   mode <show|harness|profile|on|off|strict-regulated|balanced-enterprise|auto-lab> [args...]
   observe <logs|trace|evals|audit-pack|audit-report|recover> [args...]
   auto <run|review|memory|entropy> [args...]
+  idea <capture|transition|status> [args...]
+  compat <setup|doctor> [args...]
   help
 
 Hook Subcommands:
@@ -130,6 +134,24 @@ run_automation() {
     exit 1
   fi
   run_python_engine "$AUTOMATION_ENGINE" "$@"
+}
+
+run_product_intelligence() {
+  require_python_or_exit "product intelligence"
+  if [[ ! -f "$PRODUCT_INTELLIGENCE_ENGINE" ]]; then
+    echo "Missing product intelligence engine: $PRODUCT_INTELLIGENCE_ENGINE" >&2
+    exit 1
+  fi
+  PYTHONIOENCODING="utf-8" PYTHONUTF8="1" "$PYTHON_BIN" "$PRODUCT_INTELLIGENCE_ENGINE" --project-dir "$PROJECT_DIR" "$@"
+}
+
+run_adapter_tool() {
+  require_python_or_exit "CLI compatibility adapter"
+  if [[ ! -f "$ADAPTER_ENGINE" ]]; then
+    echo "Missing adapter engine: $ADAPTER_ENGINE" >&2
+    exit 1
+  fi
+  PYTHONIOENCODING="utf-8" PYTHONUTF8="1" "$PYTHON_BIN" "$ADAPTER_ENGINE" --project-dir "$PROJECT_DIR" "$@"
 }
 
 run_hook_core() {
@@ -239,6 +261,7 @@ HELP
       fi
       ensure_env_ready
       run_project_ops init-state
+      run_product_intelligence capture "$idea" --source-type user_idea >/dev/null
       set +e
       eval_output="$(run_automation evaluate-requirement "$idea" 2>&1)"
       eval_rc=$?
@@ -263,6 +286,65 @@ HELP
     bootstrap)
       ensure_env_ready
       run_project_ops bootstrap "$@"
+      ;;
+  esac
+}
+
+run_idea_group() {
+  local action="${1:-status}"
+  shift || true
+  case "$action" in
+    capture)
+      if [[ -z "${1:-}" ]]; then
+        echo 'Usage: bash .claude/workflow/rpi.sh idea capture "<raw material>" [source_type]' >&2
+        return 1
+      fi
+      local text="$1"
+      local source_type="${2:-unknown}"
+      run_product_intelligence capture "$text" --source-type "$source_type"
+      ;;
+    transition)
+      if [[ $# -lt 3 ]]; then
+        echo 'Usage: bash .claude/workflow/rpi.sh idea transition <claim_id> <state> "<reason>" [evidence...]' >&2
+        return 1
+      fi
+      local claim_id="$1"
+      local state="$2"
+      local reason="$3"
+      shift 3 || true
+      local evidence_args=()
+      local evidence
+      for evidence in "$@"; do
+        evidence_args+=(--evidence "$evidence")
+      done
+      run_product_intelligence transition "$claim_id" "$state" --reason "$reason" "${evidence_args[@]}"
+      ;;
+    status)
+      run_product_intelligence status
+      ;;
+    help|--help|-h)
+      echo 'Usage: bash .claude/workflow/rpi.sh idea <capture|transition|status> [args...]'
+      ;;
+    *)
+      echo "Unknown idea action: $action" >&2
+      return 1
+      ;;
+  esac
+}
+
+run_compat_group() {
+  local action="${1:-doctor}"
+  shift || true
+  case "$action" in
+    setup|doctor)
+      run_adapter_tool "$action" "$@"
+      ;;
+    help|--help|-h)
+      echo 'Usage: bash .claude/workflow/rpi.sh compat <setup|doctor>'
+      ;;
+    *)
+      echo "Unknown compat action: $action" >&2
+      return 1
       ;;
   esac
 }
@@ -584,6 +666,12 @@ case "$subcommand" in
     ;;
   auto)
     run_auto_group "$@"
+    ;;
+  idea)
+    run_idea_group "$@"
+    ;;
+  compat)
+    run_compat_group "$@"
     ;;
   hook-session-start)
     run_hook_core "$SESSION_START_CORE" "SessionStart"
