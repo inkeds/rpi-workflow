@@ -12,6 +12,7 @@ SPEC_STATE_ENGINE="$ENGINE_DIR/spec_state_tool.py"
 AUTOMATION_ENGINE="$ENGINE_DIR/automation_tool.py"
 PRODUCT_INTELLIGENCE_ENGINE="$PROJECT_DIR/.rpi/core/product_intelligence.py"
 ADAPTER_ENGINE="$PROJECT_DIR/.rpi/core/adapter_tool.py"
+EVAL_ENGINE="$PROJECT_DIR/.rpi/core/eval_tool.py"
 
 SESSION_START_CORE="$ENGINE_DIR/session_start_core.py"
 USER_PROMPT_SUBMIT_CORE="$ENGINE_DIR/user_prompt_submit_core.py"
@@ -33,8 +34,9 @@ Primary Subcommands:
   mode <show|harness|profile|on|off|strict-regulated|balanced-enterprise|auto-lab> [args...]
   observe <logs|trace|evals|audit-pack|audit-report|recover> [args...]
   auto <run|review|memory|entropy> [args...]
-  idea <capture|transition|status> [args...]
-  compat <setup|doctor> [args...]
+  idea <capture|directions|select|transition|status> [args...]
+  compat <setup|doctor|verify> [args...]
+  eval <list|init|compare> [args...]
   help
 
 Hook Subcommands:
@@ -152,6 +154,15 @@ run_adapter_tool() {
     exit 1
   fi
   PYTHONIOENCODING="utf-8" PYTHONUTF8="1" "$PYTHON_BIN" "$ADAPTER_ENGINE" --project-dir "$PROJECT_DIR" "$@"
+}
+
+run_eval_tool() {
+  require_python_or_exit "Eval Suite"
+  if [[ ! -f "$EVAL_ENGINE" ]]; then
+    echo "Missing Eval engine: $EVAL_ENGINE" >&2
+    exit 1
+  fi
+  PYTHONIOENCODING="utf-8" PYTHONUTF8="1" "$PYTHON_BIN" "$EVAL_ENGINE" --project-dir "$PROJECT_DIR" "$@"
 }
 
 run_hook_core() {
@@ -322,8 +333,11 @@ run_idea_group() {
     status)
       run_product_intelligence status "$@"
       ;;
+    directions|select)
+      run_product_intelligence "$action" "$@"
+      ;;
     help|--help|-h)
-      echo 'Usage: bash .claude/workflow/rpi.sh idea <capture|transition|status> [args...]'
+      echo 'Usage: bash .claude/workflow/rpi.sh idea <capture|directions|select|transition|status> [args...]'
       ;;
     *)
       echo "Unknown idea action: $action" >&2
@@ -336,14 +350,31 @@ run_compat_group() {
   local action="${1:-doctor}"
   shift || true
   case "$action" in
-    setup|doctor)
+    setup|doctor|verify)
       run_adapter_tool "$action" "$@"
       ;;
     help|--help|-h)
-      echo 'Usage: bash .claude/workflow/rpi.sh compat <setup|doctor>'
+      echo 'Usage: bash .claude/workflow/rpi.sh compat <setup|doctor|verify>'
       ;;
     *)
       echo "Unknown compat action: $action" >&2
+      return 1
+      ;;
+  esac
+}
+
+run_eval_group() {
+  local action="${1:-list}"
+  shift || true
+  case "$action" in
+    list|init|compare)
+      run_eval_tool "$action" "$@"
+      ;;
+    help|--help|-h)
+      echo 'Usage: bash .claude/workflow/rpi.sh eval <list|init|compare> [args...]'
+      ;;
+    *)
+      echo "Unknown eval action: $action" >&2
       return 1
       ;;
   esac
@@ -672,6 +703,9 @@ case "$subcommand" in
     ;;
   compat)
     run_compat_group "$@"
+    ;;
+  eval)
+    run_eval_group "$@"
     ;;
   hook-session-start)
     run_hook_core "$SESSION_START_CORE" "SessionStart"

@@ -8,11 +8,15 @@
 
 ```bash
 bash .claude/workflow/rpi.sh idea capture "<raw material>" [source_type]
+bash .claude/workflow/rpi.sh idea directions [--source-id <SRC-ID>]
+bash .claude/workflow/rpi.sh idea select <DIR-ID> --reason "<reason>"
 bash .claude/workflow/rpi.sh idea status
 bash .claude/workflow/rpi.sh idea transition <claim_id> <state> "<reason>" [evidence...]
 ```
 
 - `capture` 保留用户原文并生成可审查的 `inferred` 主张。
+- `directions` 生成 0～3 个候选方向和 Markdown 决策卡，不使用综合百分制。
+- `select` 将方向和对应主张标记为 `selected`，不会直接晋升为 `fact`。
 - `transition` 管理主张状态；晋升为 `validated` 或 `fact` 必须提供证据引用。
 - 当前事实输出到 `.rpi-outfile/product/current_facts.json`。
 
@@ -21,10 +25,25 @@ bash .claude/workflow/rpi.sh idea transition <claim_id> <state> "<reason>" [evid
 ```bash
 bash .claude/workflow/rpi.sh compat setup
 bash .claude/workflow/rpi.sh compat doctor
+bash .claude/workflow/rpi.sh compat verify <codex|claude> <capability> --evidence "<evidence>"
 ```
 
 - `setup` 从 `.rpi/skills` 生成两端 Skills，并生成 Codex Hooks。
-- `doctor` 检查 CLI、Adapter 和共享 Core；项目信任和 Hook 审核仍由对应 CLI 管理。
+- `doctor` 检查 CLI、Adapter、指纹和运行事件，并按 profile 输出显式降级。
+- 能力状态包括 `configured / verified / stale / missing`。
+- `verify` 用于无法自动观测的能力；CLI 版本或 Adapter 哈希变化后验证自动转为 `stale`。
+
+### Eval Suite
+
+```bash
+bash .claude/workflow/rpi.sh eval list
+bash .claude/workflow/rpi.sh eval init <structured-extraction|grounded-generation|agent-tool-use> <suite-name>
+bash .claude/workflow/rpi.sh eval compare <baseline.json> <candidate.json> [--output <report.json>]
+```
+
+- 比较报告按指标展示变化，不生成万能总分。
+- 关键指标退化返回非零并要求人工审核。
+- `eligible` 不代表自动升级；仍需审查成本、延迟、隐私和产品取舍。
 
 ## 使用约定
 

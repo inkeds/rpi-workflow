@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "template": "grounded-generation",
+  "description": "Evaluate summaries and answers that must remain grounded in supplied sources.",
+  "dataset": {
+    "version": "",
+    "source": "project-provided",
+    "privacy": "review-required",
+    "samples": []
+  },
+  "scorers": [
+    {"name": "citation_precision", "type": "deterministic", "higher_is_better": true, "critical": true},
+    {"name": "key_fact_coverage", "type": "hybrid", "higher_is_better": true, "critical": false},
+    {"name": "unsupported_claim_rate", "type": "hybrid", "higher_is_better": false, "critical": true},
+    {"name": "correct_refusal_rate", "type": "deterministic", "higher_is_better": true, "critical": true}
+  ],
+  "budgets": {"p95_latency_ms": null, "cost_per_case": null},
+  "judge_policy": "LLM judge may assist semantic scoring but cannot be the only blocker for high-risk release."
+}

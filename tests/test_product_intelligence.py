@@ -13,6 +13,7 @@ if str(CORE_DIR) not in sys.path:
     sys.path.insert(0, str(CORE_DIR))
 
 import adapter_tool  # noqa: E402
+import eval_tool  # noqa: E402
 import product_intelligence as pi  # noqa: E402
 
 ENGINE_DIR = ROOT / ".claude" / "workflow" / "engine"
@@ -69,6 +70,31 @@ class ProductIntelligenceTests(unittest.TestCase):
                 pi.cmd_capture(project, "验证一个本地工具想法。", "user_idea")
                 self.assertEqual(pi.cmd_status(project, require_source=True), 0)
 
+    def test_directions_explain_tradeoffs_without_auto_promoting_fact(self) -> None:
+        analysis = pi.analyze_text(
+            "无需安装的 Web 管理页，监控 Windows 所有应用流量，并支持团队云端协作。",
+            "SRC-direction",
+        )
+        directions = pi.direction_candidates(analysis, "demo")
+        self.assertGreaterEqual(len(directions), 2)
+        self.assertLessEqual(len(directions), 3)
+        self.assertTrue(any(item["recommendation"]["objections"] for item in directions))
+        self.assertTrue(all(item["status"] == "candidate" for item in directions))
+
+    def test_select_direction_creates_selected_claim_not_fact(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            with contextlib.redirect_stdout(io.StringIO()):
+                pi.cmd_capture(project, "Web 管理页结合 Windows 桌面流量监控。", "user_idea")
+                pi.cmd_directions(project, "")
+            directions = json.loads((project / ".rpi-outfile/product/directions.json").read_text(encoding="utf-8"))["directions"]
+            with contextlib.redirect_stdout(io.StringIO()):
+                pi.cmd_select_direction(project, directions[0]["id"], "用户接受该取舍")
+            claims = json.loads((project / ".rpi-outfile/product/claims.json").read_text(encoding="utf-8"))["claims"]
+            direction_claims = [item for item in claims if item.get("applicable_scope") == "product-direction"]
+            self.assertEqual(direction_claims[0]["state"], "selected")
+            self.assertFalse((project / ".rpi-outfile/product/current_facts.json").exists())
+
 
 class PhaseModelTests(unittest.TestCase):
     def test_m_minus_one_is_a_supported_phase(self) -> None:
@@ -107,6 +133,61 @@ class AdapterTests(unittest.TestCase):
         )
         self.assertEqual(normalized["tool_name"], "Bash")
         self.assertEqual(normalized["tool_input"]["command"], "pytest -q")
+
+    def test_verified_capability_becomes_stale_when_adapter_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            (project / ".codex").mkdir()
+            (project / ".agents/skills/demo").mkdir(parents=True)
+            (project / ".rpi/adapters").mkdir(parents=True)
+            (project / "AGENTS.md").write_text("rules", encoding="utf-8")
+            (project / ".codex/hooks.json").write_text("{}", encoding="utf-8")
+            (project / ".agents/skills/demo/SKILL.md").write_text("skill", encoding="utf-8")
+            (project / ".rpi/adapters/hook_bridge.py").write_text("bridge", encoding="utf-8")
+            installed = {"installed": True, "version": "codex-test"}
+            files = {"config": True, "hooks": True, "skills": True, "instructions": True}
+            fingerprint = adapter_tool.platform_fingerprint(project, "codex", "codex-test")
+            adapter_tool.write_json(
+                adapter_tool.verification_path(project),
+                {
+                    "platforms": {
+                        "codex": {
+                            "fingerprint": fingerprint,
+                            "capabilities": {"skills": {"status": "verified", "evidence": "manual check"}},
+                        }
+                    }
+                },
+            )
+            state = adapter_tool.capability_states(project, "codex", installed, files)
+            self.assertEqual(state["capabilities"]["skills"]["status"], "verified")
+            (project / ".agents/skills/demo/SKILL.md").write_text("changed", encoding="utf-8")
+            state = adapter_tool.capability_states(project, "codex", installed, files)
+            self.assertEqual(state["capabilities"]["skills"]["status"], "stale")
+
+
+class EvalToolTests(unittest.TestCase):
+    def test_critical_metric_regression_requires_manual_review(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            baseline = project / "baseline.json"
+            candidate = project / "candidate.json"
+            baseline.write_text(
+                json.dumps({"model": "old", "metrics": {"unsupported_claim_rate": {"value": 0.02, "higher_is_better": False, "critical": True}}}),
+                encoding="utf-8",
+            )
+            candidate.write_text(
+                json.dumps({"model": "new", "metrics": {"unsupported_claim_rate": {"value": 0.05, "higher_is_better": False, "critical": True}}}),
+                encoding="utf-8",
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                rc = eval_tool.cmd_compare(project, baseline, candidate, None)
+            self.assertEqual(rc, 2)
+
+    def test_eval_templates_cover_three_supported_scenarios(self) -> None:
+        self.assertEqual(
+            set(eval_tool.TEMPLATE_NAMES),
+            {"structured-extraction", "grounded-generation", "agent-tool-use"},
+        )
 
 
 if __name__ == "__main__":

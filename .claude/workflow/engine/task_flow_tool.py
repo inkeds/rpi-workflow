@@ -1991,6 +1991,31 @@ def cmd_start(paths: Paths, argv: Sequence[str]) -> int:
         spec_state_required = False
         precode_guard_mode = "warn"
 
+    compatibility_status = "unverified"
+    compatibility_degradation: List[Dict[str, Any]] = []
+    adapter_engine = paths.project_dir / ".rpi" / "core" / "adapter_tool.py"
+    if adapter_engine.exists():
+        compat_proc = subprocess.run(
+            [sys.executable, str(adapter_engine), "--project-dir", str(paths.project_dir), "doctor"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        try:
+            compat_report = json.loads(compat_proc.stdout) if compat_proc.stdout.strip() else {}
+        except json.JSONDecodeError:
+            compat_report = {}
+        compatibility_status = str_value(compat_report.get("status", "unverified"), "unverified")
+        governance = compat_report.get("governance", {}) if isinstance(compat_report, dict) else {}
+        raw_degradation = governance.get("degradation", []) if isinstance(governance, dict) else []
+        compatibility_degradation = raw_degradation if isinstance(raw_degradation, list) else []
+    if phase != "M-1" and compatibility_status == "degraded":
+        if str_value(runtime_get(runtime, "profile_name", "balanced-enterprise"), "balanced-enterprise") == "strict-regulated":
+            print("Start blocked: strict-regulated requires verified Codex/Claude governance capabilities.", file=sys.stderr)
+            print("Run: bash .claude/workflow/rpi.sh compat doctor", file=sys.stderr)
+            return 1
+        print("Warning: Agent governance is degraded; run /rpi-check precode and preserve manual evidence before implementation.", file=sys.stderr)
+
     if start_require_ready:
         rc_art, out_art, _ = run_task_flow_capture(paths, "artifact-status", ["--json"])
         if rc_art in {0, 1} and out_art.strip():
@@ -2099,6 +2124,7 @@ def cmd_start(paths: Paths, argv: Sequence[str]) -> int:
             "last_verify_status": "unknown",
             "last_verify_count": 0,
         },
+        "compatibility": {"status": compatibility_status, "degradation": compatibility_degradation},
         "autonomy": {
             "tool_event_count": 0,
             "last_tool_event_at": "",

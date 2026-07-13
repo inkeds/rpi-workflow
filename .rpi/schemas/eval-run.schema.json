@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rpi.local/schemas/eval-run.schema.json",
+  "title": "RPI Eval Run",
+  "type": "object",
+  "required": ["suite_id", "model", "prompt_version", "tool_version", "metrics"],
+  "properties": {
+    "suite_id": {"type": "string"},
+    "model": {"type": "string"},
+    "prompt_version": {"type": "string"},
+    "tool_version": {"type": "string"},
+    "dataset_version": {"type": "string"},
+    "metrics": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["value", "higher_is_better", "critical"],
+        "properties": {
+          "value": {"type": "number"},
+          "higher_is_better": {"type": "boolean"},
+          "critical": {"type": "boolean"}
+        }
+      }
+    }
+  }
+}

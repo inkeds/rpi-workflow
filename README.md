@@ -200,13 +200,14 @@ flowchart LR
 ## 主要能力
 
 - **Product Intelligence**：原始素材保真、去营销化、功能拆分、平台推断和冲突识别。
+- **Direction Decision**：生成 0～3 个可解释方向、反对理由、验证实验和 Markdown 决策卡。
 - **Claim Lifecycle**：管理推断、假设、选择、验证、事实、否定、过期和替代关系。
 - **Spec Engineering**：构建、验证、同步和关联 Discovery、PRD、Spec 与 Task。
 - **RPI Execution**：Requirement → Plan → Implement 的可追溯任务执行。
-- **TDD & Eval**：Red/Green 证据、契约测试、E2E 和 AI 能力评测。
+- **TDD & Eval**：Red/Green 证据、契约测试、E2E、三个 Eval 模板和模型回归比较。
 - **Quality Gates**：按阶段执行测试、规范、架构、UX 和模块联动检查。
 - **Governance**：风险矩阵、权限边界、审计包、恢复和反熵。
-- **Cross-Agent Adapters**：Codex/Claude 指令、Skills、Hooks 和工具名称转换。
+- **Cross-Agent Adapters**：Codex/Claude 指令、Skills、Hooks、运行时能力验证和显式降级。
 
 ## 跨 Agent 兼容
 
@@ -227,8 +228,14 @@ flowchart LR
 |---|---|
 | 保存和分析创意 | `rpi.sh idea capture "<素材>"` |
 | 查看主张状态 | `rpi.sh idea status` |
+| 生成产品方向与决策卡 | `rpi.sh idea directions` |
+| 选择候选方向 | `rpi.sh idea select <DIR-ID> --reason "..."` |
 | 生成 Agent Adapter | `rpi.sh compat setup` |
 | 检查兼容状态 | `rpi.sh compat doctor` |
+| 显式验证能力 | `rpi.sh compat verify codex all --evidence "..."` |
+| 查看 Eval 模板 | `rpi.sh eval list` |
+| 初始化 Eval Suite | `rpi.sh eval init grounded-generation docs-qa` |
+| 比较模型回归 | `rpi.sh eval compare baseline.json candidate.json` |
 | 环境检查 | `/rpi-check env` |
 | 初始化项目 | `/rpi-init <idea>` |
 | 深化产品范围 | `/rpi-init deepen` |
@@ -297,10 +304,11 @@ bash .claude/workflow/rpi.sh compat doctor
 - [x] Spec、Task、TDD、质量门控和审计闭环
 - [x] 产品素材与主张成熟度模型
 - [x] Codex CLI / Claude Code CLI 双适配
-- [ ] 产品方向候选与交互式验证流程
-- [ ] 更完整的 AI Eval 数据集与模型升级回归
-- [ ] Adapter 能力协商和显式降级状态
-- [ ] 更多 Agent 平台适配
+- [x] 0～3 个可解释产品方向、反对意见和 Markdown 决策卡
+- [x] Eval Suite 协议与结构化提取/来源生成/工具调用模板
+- [x] Codex/Claude 运行时能力状态、版本失效和显式降级
+
+当前不计划扩展 Codex CLI 和 Claude Code CLI 之外的 Agent 平台。
 
 ## 贡献
 

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rpi.local/schemas/compatibility.schema.json",
+  "title": "RPI Agent Compatibility Report",
+  "type": "object",
+  "required": ["schema_version", "platforms", "shared_core"],
+  "properties": {
+    "schema_version": {"type": "integer", "minimum": 2},
+    "platforms": {
+      "type": "object",
+      "required": ["codex", "claude"]
+    },
+    "governance": {
+      "type": "object",
+      "properties": {
+        "status": {"enum": ["ready", "ready_with_warnings", "degraded"]},
+        "degradation": {"type": "array"}
+      }
+    }
+  }
+}

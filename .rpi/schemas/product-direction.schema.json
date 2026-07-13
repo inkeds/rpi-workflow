@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rpi.local/schemas/product-direction.schema.json",
+  "title": "RPI Product Direction",
+  "type": "object",
+  "required": ["id", "source_ids", "title", "status", "user_outcome", "new_risks", "next_experiments", "recommendation"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^DIR-"},
+    "source_ids": {"type": "array", "items": {"type": "string"}},
+    "title": {"type": "string"},
+    "status": {"enum": ["candidate", "selected", "validating", "validated", "adopted", "rejected", "expired"]},
+    "user_outcome": {"type": "string"},
+    "required_platforms": {"type": "array", "items": {"type": "string"}},
+    "kept_capabilities": {"type": "array", "items": {"type": "string"}},
+    "deferred_capabilities": {"type": "array", "items": {"type": "string"}},
+    "new_risks": {"type": "array", "items": {"type": "string"}},
+    "next_experiments": {"type": "array", "items": {"type": "string"}},
+    "recommendation": {
+      "type": "object",
+      "required": ["level", "reasons", "objections"],
+      "properties": {
+        "level": {"enum": ["recommended", "viable", "high-risk", "needs-evidence", "not-recommended"]},
+        "reasons": {"type": "array", "items": {"type": "string"}},
+        "objections": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

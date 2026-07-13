@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "template": "structured-extraction",
+  "description": "Evaluate schema-constrained extraction, field accuracy, omissions, and unsupported fields.",
+  "dataset": {
+    "version": "",
+    "source": "project-provided",
+    "privacy": "review-required",
+    "samples": []
+  },
+  "scorers": [
+    {"name": "schema_valid_rate", "type": "deterministic", "higher_is_better": true, "critical": true},
+    {"name": "field_accuracy", "type": "deterministic", "higher_is_better": true, "critical": true},
+    {"name": "field_omission_rate", "type": "statistical", "higher_is_better": false, "critical": false},
+    {"name": "unsupported_field_rate", "type": "deterministic", "higher_is_better": false, "critical": true}
+  ],
+  "budgets": {"p95_latency_ms": null, "cost_per_case": null},
+  "human_review": {"required_for": ["high-impact fields", "ambiguous samples"]}
+}

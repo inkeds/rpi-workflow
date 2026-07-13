@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "template": "agent-tool-use",
+  "description": "Evaluate task completion, tool selection, parameters, side effects, approvals, and rollback.",
+  "dataset": {
+    "version": "",
+    "source": "project-provided",
+    "privacy": "review-required",
+    "samples": []
+  },
+  "scorers": [
+    {"name": "task_completion_rate", "type": "deterministic", "higher_is_better": true, "critical": true},
+    {"name": "tool_parameter_accuracy", "type": "deterministic", "higher_is_better": true, "critical": true},
+    {"name": "unexpected_side_effect_rate", "type": "deterministic", "higher_is_better": false, "critical": true},
+    {"name": "approval_compliance_rate", "type": "deterministic", "higher_is_better": true, "critical": true},
+    {"name": "rollback_success_rate", "type": "deterministic", "higher_is_better": true, "critical": false}
+  ],
+  "budgets": {"p95_latency_ms": null, "cost_per_task": null, "max_retries": null},
+  "human_review": {"required_for": ["irreversible actions", "security-sensitive tools"]}
+}

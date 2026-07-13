@@ -32,6 +32,19 @@ bash .claude/workflow/rpi.sh compat doctor
 
 `compat setup` renders Codex hooks and both skill directories from the canonical `.rpi/skills` source. Trust and hook approval remain explicit user actions and are never silently bypassed.
 
+`compat doctor` reports capability states rather than only checking file existence:
+
+- `configured`: adapter files exist but runtime behavior has not been observed.
+- `verified`: a real lifecycle event was observed or explicit evidence was recorded.
+- `stale`: CLI version or adapter/skill/hook content changed after verification.
+- `missing`: the CLI or required adapter is unavailable.
+
+```bash
+bash .claude/workflow/rpi.sh compat verify codex all --evidence "hooks reviewed and lifecycle verified in current session"
+```
+
+The verification fingerprint includes the CLI version and relevant instruction, hook, skill, and bridge content. Changes invalidate previous verification.
+
 ## Hook contract
 
 RPI normalizes lifecycle decisions to:
@@ -51,3 +64,9 @@ Platform adapters translate native payloads and tool names to the RPI core. Long
 ## Degraded operation
 
 If project trust, hook approval, or a lifecycle capability is unavailable, RPI must report the degraded state. A formal task may fall back to an explicit preflight, but it must not be automatically closed as fully governed when its required enforcement layer did not run.
+
+- `auto-lab`: allows warnings without claiming complete governance.
+- `balanced-enterprise`: reports missing required runtime verification as degraded.
+- `strict-regulated`: requires all declared lifecycle capabilities to be verified before full governance can be claimed.
+
+RPI currently targets Codex CLI and Claude Code CLI only.

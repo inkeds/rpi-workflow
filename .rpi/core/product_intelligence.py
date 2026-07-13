@@ -200,6 +200,221 @@ def analyze_text(text: str, source_id: str) -> dict[str, Any]:
     }
 
 
+def direction_candidates(analysis: dict[str, Any], source_text: str) -> list[dict[str, Any]]:
+    platforms = {item["platform"] for item in analysis.get("platforms", [])}
+    fragments = list(analysis.get("fragments", []))
+    candidates: list[dict[str, Any]] = []
+
+    def add(
+        key: str,
+        title: str,
+        outcome: str,
+        required: list[str],
+        kept: list[str],
+        deferred: list[str],
+        risks: list[str],
+        experiments: list[str],
+        level: str,
+        reasons: list[str],
+        objections: list[str],
+    ) -> None:
+        candidates.append(
+            {
+                "id": stable_id("DIR", f"{analysis['source_id']}:{key}"),
+                "source_ids": [analysis["source_id"]],
+                "title": title,
+                "status": "candidate",
+                "user_outcome": outcome,
+                "required_platforms": required,
+                "kept_capabilities": kept,
+                "deferred_capabilities": deferred,
+                "new_risks": risks,
+                "critical_unknowns": ["目标用户是否真的需要该结果", "核心体验是否优于现有做法"],
+                "next_experiments": experiments,
+                "supporting_evidence": [],
+                "contradicting_evidence": [],
+                "recommendation": {"level": level, "reasons": reasons, "objections": objections},
+                "created_at": utc_now(),
+                "updated_at": utc_now(),
+            }
+        )
+
+    web_capabilities = [f for f in fragments if any(x in f.lower() for x in ("web", "网页", "浏览器", "在线"))]
+    desktop_capabilities = [f for f in fragments if any(x in f.lower() for x in ("windows", "桌面", "托盘", "驱动", "流量", "抓包"))]
+    cloud_capabilities = [f for f in fragments if any(x in f.lower() for x in ("协作", "同步", "云端", "账号", "团队"))]
+
+    if platforms & {"web", "browser_extension"}:
+        add(
+            "web",
+            "Web / 浏览器优先",
+            "以低安装成本验证浏览器内或在线场景中的核心体验",
+            sorted(platforms & {"web", "browser_extension", "cloud"}) or ["web"],
+            web_capabilities or fragments[:2],
+            desktop_capabilities,
+            ["浏览器沙箱无法提供系统级权限", "离线和本地数据能力可能受限"],
+            ["制作可点击原型验证使用路径", "验证浏览器 API 是否覆盖关键动作"],
+            "viable",
+            ["验证速度快", "普通用户使用门槛低"],
+            ["如果系统级能力不可妥协，则该方向不成立"],
+        )
+
+    if platforms & {"windows_desktop", "system_network", "local_ai"}:
+        add(
+            "local",
+            "本地桌面客户端优先",
+            "优先保留本地数据、桌面集成或系统级能力",
+            sorted(platforms & {"windows_desktop", "system_network", "local_ai"}) or ["windows_desktop"],
+            desktop_capabilities or fragments[:2],
+            cloud_capabilities,
+            ["需要安装、授权或管理员权限", "系统兼容和分发成本较高"],
+            ["用工程 Spike 验证最高权限能力", "制作最小桌面交互原型"],
+            "recommended" if "system_network" in platforms else "viable",
+            ["与系统级能力的运行位置一致", "可优先保护本地隐私"],
+            ["如果无需安装是硬约束，则不应选择该方向"],
+        )
+
+    if "cloud" in platforms and platforms & {"windows_desktop", "system_network", "local_ai"}:
+        add(
+            "hybrid",
+            "本地客户端 + 云端协作",
+            "由本地端执行受权限限制的能力，由云端提供账户、同步和协作",
+            ["windows_desktop", "cloud"],
+            list(dict.fromkeys(desktop_capabilities + cloud_capabilities)),
+            [],
+            ["至少包含客户端、服务端和同步协议", "隐私、冲突合并和运营成本显著增加"],
+            ["先验证本地核心能力", "再用最小同步原型验证数据边界和冲突策略"],
+            "high-risk",
+            ["能保留最多功能组合"],
+            ["第一版成本最高，不适合在核心价值未验证时直接建设"],
+        )
+
+    if not candidates and fragments:
+        add(
+            "minimal",
+            "单一核心场景最小版本",
+            "先从一个用户结果和一条端到端链路验证价值",
+            [],
+            fragments[:1],
+            fragments[1:],
+            ["目标用户和平台仍不明确"],
+            ["制作低保真产品原型", "访谈或观察至少一个目标用户场景"],
+            "needs-evidence",
+            ["避免在信息不足时过早选择架构"],
+            ["当前证据不足，不能直接进入正式 PRD"],
+        )
+
+    return candidates[:3]
+
+
+def render_direction_card(source_text: str, analysis: dict[str, Any], directions: Sequence[dict[str, Any]]) -> str:
+    lines = [
+        "# 产品方向决策卡",
+        "",
+        "## 原始素材",
+        "",
+        source_text,
+        "",
+        "## 当前判断",
+        "",
+        f"- 不确定性：{analysis.get('uncertainty', 'unknown')}",
+        f"- 检测平台：{', '.join(item['platform'] for item in analysis.get('platforms', [])) or '尚未明确'}",
+        f"- 主要冲突：{len(analysis.get('conflicts', []))} 项",
+        "",
+    ]
+    if not directions:
+        lines.extend(["## 结论", "", "当前素材不足以形成可信产品方向，应继续澄清或先运行低成本实验。", ""])
+        return "\n".join(lines)
+    for index, direction in enumerate(directions, start=1):
+        lines.extend(
+            [
+                f"## 方向 {index}：{direction['title']}",
+                "",
+                f"- 用户结果：{direction['user_outcome']}",
+                f"- 保留：{'；'.join(direction['kept_capabilities']) or '待确认'}",
+                f"- 暂缓：{'；'.join(direction['deferred_capabilities']) or '无'}",
+                f"- 风险：{'；'.join(direction['new_risks'])}",
+                f"- 下一实验：{'；'.join(direction['next_experiments'])}",
+                f"- 判断：{direction['recommendation']['level']}",
+                f"- 推荐理由：{'；'.join(direction['recommendation']['reasons'])}",
+                f"- 反对理由：{'；'.join(direction['recommendation']['objections'])}",
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            "## 需要用户决定",
+            "",
+            "请选择更重要的用户结果和可接受的牺牲。选择只会把方向标记为 `selected`；验证通过后才能晋升为产品事实。",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def cmd_directions(project_dir: Path, source_id: str) -> int:
+    out_dir = product_dir(project_dir)
+    sources_doc = read_json(out_dir / "sources.json", {"sources": []})
+    sources = sources_doc.get("sources", [])
+    if not sources:
+        raise ValueError("no source material; run idea capture first")
+    source = next((item for item in sources if item.get("id") == source_id), None) if source_id else sources[-1]
+    if not source:
+        raise ValueError(f"unknown source: {source_id}")
+    analysis_path = out_dir / "analysis" / f"{source['id']}.json"
+    analysis = read_json(analysis_path, analyze_text(str(source.get("text", "")), str(source["id"])))
+    directions = direction_candidates(analysis, str(source.get("text", "")))
+    doc = read_json(out_dir / "directions.json", {"schema_version": 1, "directions": []})
+    existing = {item.get("id"): item for item in doc.get("directions", [])}
+    for direction in directions:
+        existing[direction["id"]] = direction
+    doc["directions"] = list(existing.values())
+    write_json(out_dir / "directions.json", doc)
+    card = render_direction_card(str(source.get("text", "")), analysis, directions)
+    card_path = out_dir / "decision-cards" / f"{source['id']}.md"
+    card_path.parent.mkdir(parents=True, exist_ok=True)
+    card_path.write_text(card, encoding="utf-8")
+    print(json.dumps({"source_id": source["id"], "directions": directions, "decision_card": str(card_path.relative_to(project_dir))}, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_select_direction(project_dir: Path, direction_id: str, reason: str) -> int:
+    out_dir = product_dir(project_dir)
+    path = out_dir / "directions.json"
+    doc = read_json(path, {"directions": []})
+    direction = next((item for item in doc.get("directions", []) if item.get("id") == direction_id), None)
+    if not direction:
+        raise ValueError(f"unknown direction: {direction_id}")
+    for item in doc["directions"]:
+        if item.get("status") == "selected":
+            item["status"] = "candidate"
+    direction["status"] = "selected"
+    direction["selection_reason"] = reason
+    direction["updated_at"] = utc_now()
+    write_json(path, doc)
+    claims_path = out_dir / "claims.json"
+    claims_doc = read_json(claims_path, {"schema_version": 1, "claims": []})
+    claim = {
+        "id": stable_id("CLM", f"direction:{direction_id}"),
+        "source_ids": direction.get("source_ids", []),
+        "text": f"选择产品方向：{direction['title']} — {direction['user_outcome']}",
+        "state": "selected",
+        "confidence": "medium",
+        "platforms": direction.get("required_platforms", []),
+        "evidence": [f"direction://{direction_id}"],
+        "applicable_scope": "product-direction",
+        "review_after": None,
+        "supersedes": [],
+        "superseded_by": None,
+        "decision_reason": reason,
+        "created_at": utc_now(),
+        "updated_at": utc_now(),
+    }
+    claims_doc["claims"] = append_unique(claims_doc.get("claims", []), [claim])
+    write_json(claims_path, claims_doc)
+    print(json.dumps(direction, ensure_ascii=False, indent=2))
+    return 0
+
+
 def append_unique(existing: list[dict[str, Any]], additions: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     by_id = {str(item.get("id")): item for item in existing if item.get("id")}
     for item in additions:
@@ -319,6 +534,11 @@ def build_parser() -> argparse.ArgumentParser:
     transition.add_argument("--evidence", action="append", default=[])
     status = sub.add_parser("status")
     status.add_argument("--require-source", action="store_true")
+    directions = sub.add_parser("directions")
+    directions.add_argument("--source-id", default="")
+    select = sub.add_parser("select")
+    select.add_argument("direction_id")
+    select.add_argument("--reason", required=True)
     return parser
 
 
@@ -332,6 +552,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             return cmd_transition(project_dir, args.claim_id, args.state, args.reason, args.evidence)
         if args.command == "status":
             return cmd_status(project_dir, args.require_source)
+        if args.command == "directions":
+            return cmd_directions(project_dir, args.source_id)
+        if args.command == "select":
+            return cmd_select_direction(project_dir, args.direction_id, args.reason)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2

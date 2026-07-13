@@ -31,6 +31,12 @@ bash .claude/workflow/rpi.sh compat doctor
 
 Codex 需要信任项目并在 `/hooks` 中审核项目 Hook；Claude Code 需要接受 Workspace Trust。未启用时 RPI 会以降级状态运行。
 
+`compat doctor` 会区分 `configured / verified / stale / missing`。CLI 版本、Hook、Skill 或 Adapter 内容变化后，原验证会自动失效。无法自动观测的能力可以附带证据显式验证：
+
+```bash
+bash .claude/workflow/rpi.sh compat verify codex all --evidence "已审核 Hook，并在当前会话验证指令、Skill 和门控"
+```
+
 ## 步骤 1.6：保存原始创意（30 秒）
 
 ```bash
@@ -38,6 +44,25 @@ bash .claude/workflow/rpi.sh idea capture "<你的原始想法或复制的功能
 ```
 
 这一步只保存和分析素材，不会直接形成正式 PRD。出现跨平台冲突、营销性描述或高不确定性时，应先选择方向或运行原型验证。
+
+生成候选方向与 Markdown 决策卡：
+
+```bash
+bash .claude/workflow/rpi.sh idea directions
+bash .claude/workflow/rpi.sh idea select <DIR-ID> --reason "更重视系统级能力"
+```
+
+RPI 不强制凑满三个方向，也允许结论是“当前无法形成可信方向”。选择方向只会进入 `selected`，验证后才能晋升为产品事实。
+
+## 步骤 1.7：初始化 AI Eval（按需）
+
+```bash
+bash .claude/workflow/rpi.sh eval list
+bash .claude/workflow/rpi.sh eval init grounded-generation docs-qa
+bash .claude/workflow/rpi.sh eval compare baseline.json candidate.json --output .rpi-outfile/evals/comparison.json
+```
+
+RPI 提供结构化提取、基于来源生成和 Agent 工具调用三个模板。`eligible` 只代表没有关键指标退化，不会自动升级模型。
 
 ## 步骤 2：环境检查（30 秒）
 
