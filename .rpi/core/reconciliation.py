@@ -142,6 +142,14 @@ def _reconcile_unlocked(project_dir: Path, task_id: str = "") -> dict[str, Any]:
     pending_changes = [str(item.get("change_id", "")) for item in changes if item.get("status") == "pending_decision"]
     if pending_changes:
         issue("high", "pending_change_decision", f"linked changes still require decisions: {','.join(pending_changes)}")
+    unresolved_conflicts = [
+        str(conflict.get("conflict_id", ""))
+        for item in changes
+        for conflict in (item.get("conflicts", []) if isinstance(item.get("conflicts", []), list) else [])
+        if isinstance(conflict, dict) and conflict.get("status") == "pending" and str(conflict.get("conflict_id", ""))
+    ]
+    if unresolved_conflicts:
+        issue("high", "unresolved_design_conflict", "linked changes have unresolved conflicts: " + ",".join(unresolved_conflicts))
 
     implementation_domains: set[str] = set()
     for path_text in code_paths:

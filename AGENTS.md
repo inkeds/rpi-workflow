@@ -25,6 +25,8 @@
 - Invariant registry: `.rpi-outfile/product/invariants.json`.
 - Current specifications: `.rpi-outfile/specs/`; implementation facts remain in code, migrations, configuration, tests, and runtime evidence.
 - Natural-language feature requests are proposed changes. Resolve `.rpi-outfile/state/changes/latest.json` before production implementation.
+- Change analysis captures a baseline and may emit pending `CNF-*` conflicts when a request contradicts current Spec or Invariant evidence.
+- Resolve conflicts explicitly (`preserve`, `amend`, `coexist`, `deprecate`, `split`, `reject`, or `defer`); stale authority baselines require re-analysis or an evidence-backed rebase.
 - Do not convert implementation drift into a product decision automatically.
 
 ### Project Knowledge Routing

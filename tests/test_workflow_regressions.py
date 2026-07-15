@@ -1,4 +1,6 @@
 import sys
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,6 +13,21 @@ if str(ENGINE_DIR) not in sys.path:
 
 import automation_tool  # noqa: E402
 import post_tool_use_core  # noqa: E402
+
+
+class AdapterOnlyDegradationTests(unittest.TestCase):
+    def test_task_engine_imports_without_platform_neutral_core(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            engine = project / ".claude/workflow/engine"
+            shutil.copytree(ENGINE_DIR, engine)
+            completed = subprocess.run(
+                [sys.executable, str(engine / "task_flow_tool.py"), "--help"],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
 
 
 class PostToolUseExitCodeTests(unittest.TestCase):

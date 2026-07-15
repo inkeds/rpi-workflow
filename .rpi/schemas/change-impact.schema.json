@@ -26,6 +26,19 @@
     "affected_capabilities": {"type": "array", "items": {"type": "string"}},
     "affected_invariants": {"type": "array", "items": {"type": "string"}},
     "affected_specs": {"type": "array", "items": {"type": "string"}},
+    "baseline": {
+      "type": "object",
+      "properties": {
+        "captured_at": {"type": "string"},
+        "phase": {"type": "string"},
+        "authority_fingerprint": {"type": "string"},
+        "design_fingerprint": {"type": "string"},
+        "authority_files": {"type": "object", "additionalProperties": {"type": "string"}},
+        "design_files": {"type": "object", "additionalProperties": {"type": "string"}}
+      }
+    },
+    "baseline_history": {"type": "array", "items": {"type": "object"}},
+    "conflicts": {"type": "array", "items": {"$ref": "conflict.schema.json"}},
     "lifecycle_impacts": {"type": "array", "items": {"type": "string"}},
     "decisions_required": {"type": "array", "items": {"$ref": "decision.schema.json"}},
     "documents_to_update": {"type": "array", "items": {"type": "string"}},

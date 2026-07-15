@@ -31,6 +31,14 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import file_lock
 import guardrails_tool as guardrails
 
+RPI_CORE_DIR = Path(__file__).resolve().parents[3] / ".rpi" / "core"
+if str(RPI_CORE_DIR) not in sys.path:
+    sys.path.insert(0, str(RPI_CORE_DIR))
+try:
+    import change_intelligence  # noqa: E402
+except ImportError:  # pragma: no cover - adapter-only degraded projects
+    change_intelligence = None  # type: ignore[assignment]
+
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -1967,6 +1975,17 @@ def cmd_start(paths: Paths, argv: Sequence[str]) -> int:
         print(f"Start blocked: change {change_id or 'unknown'} has unresolved product decisions.", file=sys.stderr)
         print("Confirm the change decision and update the applicable spec before starting implementation.", file=sys.stderr)
         return 1
+    baseline_check = (
+        change_intelligence.compare_baseline(paths.project_dir, latest_change.get("baseline", {}))
+        if change_id and change_intelligence is not None
+        else {"status": "missing"}
+    )
+    if phase != "M-1" and baseline_check.get("authority_changed"):
+        print(f"Start blocked: change {change_id} was analyzed against a stale product-governance baseline.", file=sys.stderr)
+        print(f"Re-analyze the request or run: bash .claude/workflow/rpi.sh change rebase {change_id} --evidence \"<review evidence>\"", file=sys.stderr)
+        return 1
+    if phase != "M-1" and baseline_check.get("design_changed"):
+        print("Warning: design documents changed since change analysis; verify the update belongs to this change before implementation.", file=sys.stderr)
 
     task_context_dir = paths.project_dir / ".rpi-outfile" / "specs" / "tasks" / task_id
     if not task_context_dir.exists():
@@ -2125,6 +2144,11 @@ def cmd_start(paths: Paths, argv: Sequence[str]) -> int:
             "affected_domains": latest_change.get("affected_domains", []) if isinstance(latest_change.get("affected_domains", []), list) else [],
             "capability_refs": latest_change.get("affected_capabilities", []) if isinstance(latest_change.get("affected_capabilities", []), list) else [],
             "invariant_refs": latest_change.get("affected_invariants", []) if isinstance(latest_change.get("affected_invariants", []), list) else [],
+            "baseline": latest_change.get("baseline", {}) if isinstance(latest_change.get("baseline", {}), dict) else {},
+            "conflict_refs": [
+                str(item.get("conflict_id", ""))
+                for item in latest_change.get("conflicts", []) if isinstance(item, dict) and str(item.get("conflict_id", ""))
+            ] if isinstance(latest_change.get("conflicts", []), list) else [],
         },
         "change_refs": [change_id] if change_id else [],
         "phase_state": {"current_action": "implement", "next_actions": ["implement", "check", "close"]},

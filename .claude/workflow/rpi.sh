@@ -39,7 +39,7 @@ Primary Subcommands:
   observe <logs|trace|evals|audit-pack|audit-report|recover> [args...]
   auto <run|review|memory|entropy> [args...]
   idea <capture|directions|select|transition|status> [args...]
-  change <analyze|confirm|status> [args...]
+  change <analyze|confirm|resolve|rebase|status> [args...]
   governance <build|verify|migrate|capability> [args...]
   reconcile <run|status> [args...]
   compat <setup|doctor|verify> [args...]
@@ -414,11 +414,11 @@ run_change_group() {
     status)
       run_change_intelligence status
       ;;
-    confirm)
-      run_change_intelligence confirm "$@"
+    confirm|resolve|rebase)
+      run_change_intelligence "$action" "$@"
       ;;
     help|--help|-h)
-      echo 'Usage: bash .claude/workflow/rpi.sh change <analyze|confirm|status> [args...]'
+      echo 'Usage: bash .claude/workflow/rpi.sh change <analyze|confirm|resolve|rebase|status> [args...]'
       ;;
     *)
       echo "Unknown change action: $action" >&2

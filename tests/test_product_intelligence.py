@@ -107,6 +107,94 @@ class ProductIntelligenceTests(unittest.TestCase):
 
 
 class ChangeIntelligenceTests(unittest.TestCase):
+    def test_change_captures_authority_baseline_and_flags_invariant_conflict(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            invariants = project / ".rpi-outfile/product/invariants.json"
+            invariants.parent.mkdir(parents=True)
+            invariants.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 2,
+                        "invariants": [
+                            {
+                                "id": "INV-ASSET-001",
+                                "title": "资产所有权和可见性遵循主体边界",
+                                "status": "candidate",
+                                "selected_option": "owner_scoped",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            result = ci.analyze_change("允许查看所有文件")
+            ci.persist_analysis(project, result)
+            latest = json.loads((project / ".rpi-outfile/state/changes/latest.json").read_text(encoding="utf-8"))
+            self.assertTrue(latest["baseline"]["authority_fingerprint"])
+            self.assertEqual(latest["status"], "pending_decision")
+            self.assertEqual(latest["conflicts"][0]["kind"], "invariant_change")
+            self.assertEqual(latest["conflicts"][0]["status"], "pending")
+
+    def test_change_flags_conflict_against_existing_spec_without_registry_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            spec = project / ".rpi-outfile/specs/l0/spec.md"
+            spec.parent.mkdir(parents=True)
+            spec.write_text("资产仅所有者可见，本阶段不支持管理员查看全部文件。", encoding="utf-8")
+            result = ci.analyze_change("允许管理员查看所有文件")
+            ci.persist_analysis(project, result)
+            self.assertTrue(any(item["kind"] == "design_semantics_review" for item in result["conflicts"]))
+
+    def test_conflict_resolution_and_explicit_rebase_close_the_governance_loop(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            invariants = project / ".rpi-outfile/product/invariants.json"
+            invariants.parent.mkdir(parents=True)
+            invariants.write_text(
+                json.dumps(
+                    {"schema_version": 2, "invariants": [{"id": "INV-ASSET-001", "title": "资产可见性", "status": "candidate", "selected_option": "owner_scoped"}]},
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            result = ci.analyze_change("允许查看所有文件")
+            ci.persist_analysis(project, result)
+            conflict_id = result["conflicts"][0]["conflict_id"]
+            resolved = ci.resolve_conflict(project, result["change_id"], conflict_id, "coexist", "user://explicit-scope")
+            for decision in result["decisions_required"]:
+                resolved = ci.confirm_change(
+                    project,
+                    result["change_id"],
+                    "user://decision-confirmed",
+                    decision["decision_id"],
+                    decision["recommended_option"],
+                )
+            self.assertEqual(resolved["status"], "spec_update_required")
+            rebased = ci.rebase_change(project, result["change_id"], "design://updated-spec-and-invariant")
+            self.assertEqual(rebased["baseline_history"][0]["evidence"], "design://updated-spec-and-invariant")
+            self.assertEqual(ci.compare_baseline(project, rebased["baseline"])["status"], "current")
+
+    def test_stale_authority_baseline_blocks_linked_task_mutation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            result = ci.analyze_change("修复导出乱码")
+            ci.persist_analysis(project, result)
+            inv = project / ".rpi-outfile/product/invariants.json"
+            inv.parent.mkdir(parents=True, exist_ok=True)
+            inv.write_text(json.dumps({"schema_version": 2, "invariants": [{"id": "INV-1", "title": "新增约束"}]}), encoding="utf-8")
+            paths = pre_tool_use_core.build_paths(project)
+            paths.state_dir.mkdir(parents=True, exist_ok=True)
+            paths.current_task_file.write_text(
+                json.dumps({"task_id": "TASK-STALE", "status": "in_progress", "change_refs": [result["change_id"]]}),
+                encoding="utf-8",
+            )
+            core = pre_tool_use_core.PreToolUseCore(paths, {"tool_name": "Edit", "tool_input": {"file_path": "src/export.py"}})
+            decision = core.enforce_change_gate_if_needed()
+            self.assertEqual(decision[0], "deny")
+            self.assertIn("stale product-governance baseline", decision[1])
+
     def test_local_bug_fix_can_proceed_with_lightweight_governance(self) -> None:
         result = ci.analyze_change("修复导出 CSV 时中文乱码的问题")
         self.assertEqual(result["change_type"], "local_fix")
@@ -159,6 +247,24 @@ class ChangeIntelligenceTests(unittest.TestCase):
             self.assertIn("change_type: cross_domain_change", context)
             self.assertIn("implementation_allowed: false", context)
             self.assertEqual(latest["status"], "pending_decision")
+
+    def test_natural_language_hook_surfaces_existing_design_conflict(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            spec = project / ".rpi-outfile/specs/l0/spec.md"
+            spec.parent.mkdir(parents=True)
+            spec.write_text("资产仅所有者可见。", encoding="utf-8")
+            payload = json.dumps({"prompt": "允许管理员查看所有文件"}, ensure_ascii=False)
+            completed = subprocess.run(
+                [sys.executable, str(ROOT / ".claude/workflow/engine/user_prompt_submit_core.py"), "--project-dir", str(project)],
+                input=payload,
+                text=True,
+                capture_output=True,
+                check=True,
+            )
+            context = json.loads(completed.stdout)["hookSpecificOutput"]["additionalContext"]
+            self.assertIn("conflicts_detected: CNF-", context)
+            self.assertIn("design_semantics_review", context)
 
     def test_confirmed_change_moves_to_spec_update_instead_of_direct_implementation(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

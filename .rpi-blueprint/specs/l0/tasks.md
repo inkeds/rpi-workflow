@@ -13,3 +13,4 @@
 9. 关闭前 reconciliation 结果
 
 任务不得因为存在无关候选变更而冻结；只有显式关联的 `change_refs` 约束该任务。
+若 Change 基线的权威事实发生变化，任务必须重新分析或 rebase；存在 pending `CNF-*` 时不得进入生产实现或 Pass 关闭。

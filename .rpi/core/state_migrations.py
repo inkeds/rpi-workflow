@@ -56,6 +56,9 @@ def migrate_change(doc: dict[str, Any]) -> dict[str, Any]:
     migrated.setdefault("affected_specs", [])
     migrated.setdefault("documents_to_update", [])
     migrated.setdefault("lifecycle_impacts", [])
+    migrated.setdefault("baseline", {})
+    migrated.setdefault("baseline_history", [])
+    migrated.setdefault("conflicts", [])
     migrated.setdefault("relation", "unassigned")
     if decisions and any(item.get("status") != "confirmed" for item in decisions):
         migrated["status"] = "pending_decision"

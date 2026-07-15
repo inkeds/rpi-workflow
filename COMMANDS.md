@@ -73,6 +73,8 @@ bash .claude/workflow/rpi.sh eval compare <baseline.json> <candidate.json> [--ou
 ```bash
 bash .claude/workflow/rpi.sh change analyze "<需求>"
 bash .claude/workflow/rpi.sh change confirm <CHG-ID> --evidence "<确认依据>" [--decision <DEC-ID>] [--option <OPTION>]
+bash .claude/workflow/rpi.sh change resolve <CHG-ID> <CNF-ID> --resolution <preserve|amend|coexist|deprecate|split|reject|defer> --evidence "<冲突裁决依据>"
+bash .claude/workflow/rpi.sh change rebase <CHG-ID> --evidence "<设计更新或并发审查依据>"
 bash .claude/workflow/rpi.sh change status
 
 bash .claude/workflow/rpi.sh governance build
@@ -87,6 +89,9 @@ bash .claude/workflow/rpi.sh reconcile status
 ```
 
 - `change analyze` 生成并保存变更影响状态；普通自然语言 Prompt Hook 会自动执行同类分析。
+- `change analyze` 同时捕获产品事实、Capability、Invariant 和阶段基线；检测到确定性冲突时生成 `CNF-*`，不会自动替用户选择。
+- `change resolve` 解决单个冲突；解决方案只记录裁决，不代替 Spec、注册表或迁移更新。
+- `change rebase` 在冲突和 Decision 已解决、设计已按裁决更新后刷新基线；基线过期的任务不能直接开始生产实现。
 - 高影响变更保持 `pending_decision`。可用 `--decision` 和 `--option` 逐项确认；未确认项仍会阻断。全部确认后只进入 `spec_update_required`，不会直接获得代码实现许可。
 - `governance build` 维护能力/不变量注册表和 AGENTS.md 受管路由区块，保留用户自定义内容。
 - `governance build` 使用可恢复事务日志协调 Registry、Change、材料审计和 AGENTS；上次构建若被中断，会先回滚未提交文件快照。
@@ -97,6 +102,7 @@ bash .claude/workflow/rpi.sh reconcile status
 - `capability merge/split` 要求显式证据，并在事务内迁移 Change、Invariant 和 Capability 依赖引用；被合并或拆分的原能力保留为 `retired`，不会删除历史。
 - Change、Decision、Capability、Invariant、Reconciliation 和迁移报告在核心写入路径落盘前执行依赖无关的 Schema 校验，失败时拒绝写入。
 - `reconcile run` 聚合任务的全部 `change_refs`，对账设计、代码、测试执行和迁移；未声明的高风险实现或未解决决策会阻止 Pass 关闭。
+- reconciliation 还会阻断未解决 `CNF-*`；语义是否真正符合新设计仍需项目测试和人工/Agent 评审。
 
 ---
 

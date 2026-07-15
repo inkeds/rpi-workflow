@@ -266,10 +266,10 @@ DDD-Lite 只保留三项高价值能力：
 - 审计闭环：`/rpi-observe audit-pack`、`/rpi-observe audit-report`
 - 受控自治：`/rpi-auto run`、`/rpi-auto review`、`/rpi-auto memory`、`/rpi-task pause`、`/rpi-task resume`、`/rpi-task abort`
 - 产物质量度量：`/rpi-check doctor` 输出 artifact quality score（completeness/semantic/traceability）
-- 变更治理：`change analyze|confirm|status`，并以独立 `CHG-*`、`DEC-*` 保存影响与决策证据
+- 变更治理：`change analyze|confirm|resolve|rebase|status`，并以独立 `CHG-*`、`DEC-*`、`CNF-*` 保存影响、决策与冲突证据
 - 项目治理：`governance build|verify|migrate`，维护 Capability/Invariant Registry 与项目 AGENTS 路由
 - 能力演进：`governance capability list|merge|split`，显式维护能力边界及历史引用
-- 设计对账：`reconcile run|status`，在任务关闭前核对设计、代码、测试执行与迁移
+- 设计对账：`reconcile run|status`，在任务关闭前核对设计、代码、测试执行、迁移与未解决冲突
 - 状态可靠性：Schema 校验、幂等迁移、项目级锁、原子写入、可恢复事务和增量项目索引
 - Skills 执行层：平台无关 canonical Skills，并同步到 Claude/Codex/Agents 适配面
 
@@ -331,6 +331,8 @@ DDD-Lite 只保留三项高价值能力：
 - 产品模型、所有权、授权、计费、隐私或不变量变化使用独立 `DEC-*`；每项决策单独确认并保存选项、结果与依据。
 - 变更只约束显式关联的任务，讨论无关需求不会冻结正在执行的任务。
 - 未解决的高影响决策必须阻止生产实现，而不是由 Agent 静默猜测。
+
+每项 Change 同时捕获产品事实、Capability、Invariant 和阶段基线。确定性检测只生成候选 `CNF-*` 冲突卡，不自动替用户批准语义结论；冲突可选择 preserve、amend、coexist、deprecate、split、reject 或 defer。冲突解决后仍需更新 Spec、注册表、迁移和测试；`change rebase` 只确认设计已成为新的当前基线，不替代设计更新。
 
 ### 5.17 Capability / Invariant Registry 与项目治理
 
@@ -421,7 +423,7 @@ DDD-Lite 只保留三项高价值能力：
 - Spec 状态链路：`/rpi-spec build|verify|sync|link|expand`
 - 自治与反熵：`/rpi-auto run|review|memory|entropy`
 - 审计观测：`/rpi-observe logs|trace|evals|audit-pack|audit-report|recover`
-- 变更治理：`change analyze|confirm|status`
+- 变更治理：`change analyze|confirm|resolve|rebase|status`
 - 项目治理：`governance build|verify|migrate|capability`
 - 设计对账：`reconcile run|status`
 

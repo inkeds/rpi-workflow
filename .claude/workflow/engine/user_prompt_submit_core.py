@@ -312,6 +312,17 @@ def main() -> int:
                             f"\n- decision: {item.get('decision_id', '')} topic={item.get('topic', '')} "
                             f"options={','.join(item.get('options', []))} recommended={item.get('recommended_option', '')}"
                         )
+                conflicts = change.get("conflicts", [])
+                if isinstance(conflicts, list):
+                    pending_conflicts = [item for item in conflicts if isinstance(item, dict) and item.get("status") == "pending"]
+                    if pending_conflicts:
+                        message += "\n- conflicts_detected: " + ",".join(str(item.get("conflict_id", "")) for item in pending_conflicts)
+                    for item in pending_conflicts:
+                        message += (
+                            f"\n- conflict: {item.get('conflict_id', '')} kind={item.get('kind', '')} "
+                            f"severity={item.get('severity', '')} sources={','.join(item.get('source_refs', []))} "
+                            f"reason={item.get('reason', '')}"
+                        )
                 if not change.get("implementation_allowed"):
                     message += "\n- hard_rule: analyze and resolve the change gate before production code edits"
         except ValueError:

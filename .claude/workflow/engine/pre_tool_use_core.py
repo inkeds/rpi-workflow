@@ -34,6 +34,14 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import guardrails_tool as guardrails
 import file_lock
 
+RPI_CORE_DIR = Path(__file__).resolve().parents[3] / ".rpi" / "core"
+if str(RPI_CORE_DIR) not in sys.path:
+    sys.path.insert(0, str(RPI_CORE_DIR))
+try:
+    import change_intelligence  # noqa: E402
+except ImportError:  # pragma: no cover - adapter-only degraded projects
+    change_intelligence = None  # type: ignore[assignment]
+
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -498,8 +506,24 @@ class PreToolUseCore:
         for linked_change_id in dict.fromkeys(linked_ids):
             change_file = self.paths.state_dir / "changes" / f"{linked_change_id}.json"
             change = load_json_file(change_file)
+            baseline_check = (
+                change_intelligence.compare_baseline(self.paths.project_dir, change.get("baseline", {}))
+                if change_intelligence is not None
+                else {"status": "missing", "authority_changed": False}
+            )
+            if baseline_check.get("authority_changed"):
+                reason = (
+                    f"Blocked: change {linked_change_id} uses a stale product-governance baseline. "
+                    "Re-analyze the request or explicitly rebase the change before production edits."
+                )
+                self.event_block(reason, {"change_id": linked_change_id, "conflict_kind": "stale_baseline"})
+                return "deny", reason
             if str_value(change.get("status", ""), "") != "pending_decision":
                 continue
+            pending_conflicts = [
+                item for item in change.get("conflicts", [])
+                if isinstance(item, dict) and item.get("status") == "pending"
+            ] if isinstance(change.get("conflicts", []), list) else []
             change_id = str_value(change.get("change_id", linked_change_id), linked_change_id)
             topics_raw = change.get("decisions_required", [])
             topics = []
@@ -507,12 +531,13 @@ class PreToolUseCore:
                 for item in topics_raw:
                     if isinstance(item, dict) and str_value(item.get("topic", ""), ""):
                         topics.append(str_value(item.get("topic", ""), ""))
+            conflict_ids = [str(item.get("conflict_id", "")) for item in pending_conflicts if str(item.get("conflict_id", ""))]
             reason = (
-                f"Blocked: change {change_id} has unresolved product decisions"
-                f" ({','.join(topics) if topics else 'review required'}). "
+                f"Blocked: change {change_id} has unresolved product decisions or conflicts"
+                f" ({','.join([*topics, *conflict_ids]) if topics or conflict_ids else 'review required'}). "
                 "Confirm the decision and update the applicable spec before production code edits."
             )
-            self.event_block(reason, {"change_id": change_id, "decision_topics": topics})
+            self.event_block(reason, {"change_id": change_id, "decision_topics": topics, "conflict_ids": conflict_ids})
             return "deny", reason
         return None
 

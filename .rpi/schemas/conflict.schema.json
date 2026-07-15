@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rpi.local/schemas/conflict.schema.json",
+  "title": "RPI Change Conflict",
+  "type": "object",
+  "required": ["conflict_id", "kind", "severity", "source_refs", "proposed_behavior", "reason", "status"],
+  "properties": {
+    "conflict_id": {"type": "string", "pattern": "^CNF-"},
+    "kind": {"enum": ["invariant_change", "capability_deprecation", "product_model_change", "stale_baseline", "design_semantics_review"]},
+    "severity": {"enum": ["low", "medium", "high"]},
+    "source_refs": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "proposed_behavior": {"type": "string", "minLength": 1},
+    "reason": {"type": "string", "minLength": 1},
+    "status": {"enum": ["pending", "resolved", "rejected", "deferred", "superseded"]},
+    "resolution": {"type": ["string", "null"]},
+    "resolution_evidence": {"type": "array", "items": {"type": "string"}},
+    "resolved_at": {"type": "string"}
+  }
+}

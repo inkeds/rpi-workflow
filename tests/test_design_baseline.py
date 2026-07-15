@@ -16,6 +16,8 @@ class DesignBaselineTests(unittest.TestCase):
             "Skills 执行架构",
             "11 个命令组",
             ".rpi-outfile/state/transactions/",
+            "CNF-*",
+            "新的当前基线",
         ]
         for marker in required:
             with self.subTest(marker=marker):
@@ -33,6 +35,9 @@ class DesignBaselineTests(unittest.TestCase):
         self.assertIn("Schema 校验", guards)
         self.assertIn("原子写入", guards)
         self.assertIn("平台边界", guards)
+        self.assertIn("CNF-*", spec)
+        self.assertIn("pending `CNF-*`", tasks)
+        self.assertIn("冲突约束", guards)
 
     def test_ux_blueprint_matches_current_skill_quality_layers(self) -> None:
         ux = (ROOT / ".rpi-blueprint/specs/l0/ux-spec.template.md").read_text(encoding="utf-8")
