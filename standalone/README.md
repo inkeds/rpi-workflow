@@ -2,7 +2,8 @@
 
 如果暂时不想安装完整 RPI Workflow，可以只下载一个 Markdown 放入项目根目录，让 Agent 完成材料审计、关键决策、V1 边界、设计初始化、AGENTS 规则和后续功能变更协议。
 
-[查看或下载《AI项目初始化与持续迭代协议.md》](AI项目初始化与持续迭代协议.md)
+- [直接下载最新稳定版](https://github.com/inkeds/rpi-workflow/releases/latest/download/ai-project-init-and-iteration-protocol.zh-CN.md)
+- [在仓库中查看协议源码](AI项目初始化与持续迭代协议.md)
 
 ## 适合场景
 
