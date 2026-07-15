@@ -9,7 +9,7 @@
 [![Codex CLI](https://img.shields.io/badge/Codex_CLI-compatible-111111)](COMPATIBILITY.md)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-D97757)](COMPATIBILITY.md)
 
-[快速开始](QUICKSTART.md) · [命令手册](COMMANDS.md) · [兼容说明](COMPATIBILITY.md) · [产品设计](prd.md)
+[快速开始](QUICKSTART.md) · [单文件启动](standalone/AI项目初始化与持续迭代协议.md) · [命令手册](COMMANDS.md) · [兼容说明](COMPATIBILITY.md) · [产品设计](prd.md)
 
 </div>
 
@@ -40,7 +40,7 @@ RPI Core 与具体 Agent 解耦。目前为 **Codex CLI** 和 **Claude Code CLI*
 
 ### 单文件快速启动支线
 
-对于暂不安装完整 Workflow 的用户，可单独使用独立发布的 `AI项目初始化与持续迭代协议.md`：下载一个 Markdown 放入项目根目录，即可引导 Agent 完成材料审计、关键决策、V1 边界、AGENTS 规则和后续功能变更协议。初始化完成后，项目依靠自身 AGENTS、设计文档、代码和测试继续演进，不依赖原始聊天或该协议文件持续存在。
+对于暂不安装完整 Workflow 的用户，可直接下载 [AI项目初始化与持续迭代协议.md](standalone/AI项目初始化与持续迭代协议.md)：将这一个 Markdown 放入项目根目录，即可引导 Agent 完成材料审计、关键决策、V1 边界、AGENTS 规则和后续功能变更协议。初始化完成后，项目依靠自身 AGENTS、设计文档、代码和测试继续演进，不依赖原始聊天或该协议文件持续存在。
 
 单文件版与 RPI 共享“区分事实与推断、变更先分析、设计实现对账、防止静默漂移”的原则，但两者保持独立交付：单文件版不模拟 RPI 的文件锁、事务、Schema、Hook、CLI 和 Eval；需要长期多 Agent 协作、自动门禁和可恢复状态治理时，应使用完整 RPI Workflow。
 
