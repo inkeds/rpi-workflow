@@ -81,7 +81,9 @@ class DesignBaselineTests(unittest.TestCase):
         self.assertIn("单文件协议与完整 RPI 的边界", prd)
         self.assertIn("不是完整语义冲突的自动证明", prd)
         self.assertIn("CNF-*", commands)
-        self.assertIn("冲突", standalone)
+        for marker in ["version: 1.2.0", "CNF-xxx 冲突卡", "Stale 与 Rebase", "冲突门控", "自然语言治理动作"]:
+            self.assertIn(marker, standalone)
+        self.assertNotIn(".rpi-outfile", standalone)
 
 
 if __name__ == "__main__":
