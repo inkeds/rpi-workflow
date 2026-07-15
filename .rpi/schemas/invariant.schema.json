@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rpi.local/schemas/invariant.schema.json",
+  "title": "RPI Project Invariant",
+  "type": "object",
+  "required": ["id", "title", "scope", "change_policy"],
+  "properties": {
+    "id": {"type": "string"},
+    "title": {"type": "string", "minLength": 1},
+    "scope": {"type": "array", "items": {"type": "string"}},
+    "source": {"type": "array", "items": {"type": "string"}},
+    "enforcement": {"type": "object"},
+    "change_policy": {"enum": ["spec_update_required", "explicit_decision_required"]}
+  }
+}

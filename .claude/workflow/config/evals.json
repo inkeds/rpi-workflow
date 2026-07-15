@@ -7,7 +7,7 @@
       },
       {
         "name": "compressed_check_default_full",
-        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; cp README.md prd.md CLAUDE.md \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Compressed check full' Web >/dev/null && bash .claude/workflow/rpi.sh check >/dev/null)"
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; cp README.md prd.md CLAUDE.md \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Compressed check full' Web >/dev/null && bash .claude/workflow/rpi.sh spec expand \"确认方向B，Must链路L1,L2,L3，Won't链路L4，加权覆盖率目标85%\" >/dev/null && bash .claude/workflow/rpi.sh check >/dev/null)"
       },
       {
         "name": "compressed_init_deepen_semantics",
@@ -15,7 +15,7 @@
       },
       {
         "name": "compressed_spec_expand_semantics",
-        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Compressed expand' Web >/dev/null && bash .claude/workflow/rpi.sh spec expand \"确认方向B，Must链路L1,L2,L3，Won't链路L4，加权覆盖率目标85%\" >/dev/null && grep -q '选择方向：B' .rpi-outfile/specs/l0/discovery.md && grep -q '覆盖率目标：P0 >= 80%' .rpi-outfile/specs/l0/discovery.md && grep -q '加权覆盖率目标：85%' .rpi-outfile/specs/l0/discovery.md && grep -q 'M0 Must（1-3）：L1, L2, L3' .rpi-outfile/specs/l0/discovery.md)"
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Compressed expand' Web >/dev/null && bash .claude/workflow/rpi.sh spec expand \"确认方向B，Must链路L1,L2,L3，Won't链路L4，加权覆盖率目标85%\" >/dev/null && grep -q '选择方向：B' .rpi-outfile/specs/l0/discovery.md && grep -q '覆盖率目标：P0 >= 80%' .rpi-outfile/specs/l0/discovery.md && grep -q '加权覆盖率目标：85%' .rpi-outfile/specs/l0/discovery.md && grep -q 'L1：' .rpi-outfile/specs/l0/discovery.md && bash .claude/workflow/rpi.sh spec verify --scope all --quiet)"
       },
       {
         "name": "harness_toggle_bundle",
@@ -23,11 +23,11 @@
       },
       {
         "name": "bootstrap_full_seed",
-        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap \"Bootstrap 验证项目\" \"Web\" >/dev/null && bash .claude/workflow/rpi.sh check artifact --json | jq -e '.applyReady == true and (.artifacts[] | select(.id==\"epic\") | .status == \"done\") and (.artifacts[] | select(.id==\"milestones\") | .status == \"done\")' >/dev/null && bash .claude/workflow/rpi.sh gates run M0 >/dev/null)"
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap \"Bootstrap 验证项目\" \"Web\" >/dev/null && bash .claude/workflow/rpi.sh spec expand \"确认方向B，Must链路L1,L2,L3，Won't链路L4，加权覆盖率目标85%\" >/dev/null && bash .claude/workflow/rpi.sh check artifact --json | jq -e '.applyReady == true and (.artifacts[] | select(.id==\"epic\") | .status == \"done\") and (.artifacts[] | select(.id==\"milestones\") | .status == \"done\")' >/dev/null && bash .claude/workflow/rpi.sh gates run M0 >/dev/null)"
       },
       {
         "name": "gates_auto_retry_smoke",
-        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Gate retry smoke' Web >/dev/null && bash .claude/workflow/rpi.sh gates run M0 >/dev/null && jq -s 'map(select(.event==\"quality_gate_auto\")) | length >= 1' .rpi-outfile/logs/events.jsonl >/dev/null)"
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Gate retry smoke' Web >/dev/null && bash .claude/workflow/rpi.sh spec expand \"确认方向B，Must链路L1,L2,L3，Won't链路L4，加权覆盖率目标85%\" >/dev/null && bash .claude/workflow/rpi.sh gates run M0 >/dev/null && jq -s 'map(select(.event==\"quality_gate_auto\")) | length >= 1' .rpi-outfile/logs/events.jsonl >/dev/null)"
       },
       {
         "name": "bootstrap_force_overwrite",
@@ -35,7 +35,7 @@
       },
       {
         "name": "spec_state_pipeline",
-        "command": "bash .claude/workflow/rpi.sh spec build --quiet && bash .claude/workflow/rpi.sh spec verify --scope all --quiet"
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Spec state pipeline' Web >/dev/null && bash .claude/workflow/rpi.sh spec expand \"确认方向B，Must链路L1,L2,L3，Won't链路L4，加权覆盖率目标85%\" >/dev/null && bash .claude/workflow/rpi.sh spec build --quiet && bash .claude/workflow/rpi.sh spec verify --scope all --quiet)"
       },
       {
         "name": "spec_link_graph",
@@ -71,7 +71,7 @@
       },
       {
         "name": "anti_entropy_strict",
-        "command": "bash .claude/workflow/rpi.sh auto entropy --strict >/dev/null"
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Anti entropy strict' Web >/dev/null && bash .claude/workflow/rpi.sh spec expand \"确认方向B，Must链路L1,L2,L3，Won't链路L4，加权覆盖率目标85%\" >/dev/null && bash .claude/workflow/rpi.sh auto entropy --strict >/dev/null)"
       },
       {
         "name": "agent_memory_update_smoke",
@@ -87,13 +87,21 @@
       },
       {
         "name": "a2a_review_json_smoke",
-        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && git init >/dev/null && git config user.email eval@example.com && git config user.name eval-bot && bash .claude/workflow/rpi.sh init bootstrap 'A2A smoke' Web >/dev/null && git add -A && git commit -m init >/dev/null && printf '\\n<!-- eval -->\\n' >> .claude/workflow/config/runtime.example.md && bash .claude/workflow/rpi.sh auto review --json | jq -e '.approved == true and .non_core_change == true and (.checks | length) >= 4' >/dev/null)"
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && git init >/dev/null && git config user.email eval@example.com && git config user.name eval-bot && bash .claude/workflow/rpi.sh init bootstrap 'A2A smoke' Web >/dev/null && bash .claude/workflow/rpi.sh spec expand \"确认方向B，Must链路L1,L2,L3，Won't链路L4，加权覆盖率目标85%\" >/dev/null && git add -A && git commit -m init >/dev/null && printf '\\n<!-- eval -->\\n' >> .claude/workflow/config/runtime.example.md && bash .claude/workflow/rpi.sh auto review --json | jq -e '.approved == true and .non_core_change == true and (.checks | length) >= 4' >/dev/null)"
+      },
+      {
+        "name": "natural_language_change_governance",
+        "command": "tmp=$(mktemp -d); cp -r .rpi .rpi-blueprint .claude \"$tmp\"/; cp AGENTS.md CLAUDE.md \"$tmp\"/; (cd \"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Change governance eval' Web >/dev/null && printf '{\"prompt\":\"增加团队共享，允许管理员删除成员文件\"}' | bash .claude/workflow/rpi.sh hook-user-prompt-submit >/dev/null && jq -e '.status == \"pending_decision\" and (.decisions_required | length) >= 2' .rpi-outfile/state/changes/latest.json >/dev/null && id=$(jq -r '.change_id' .rpi-outfile/state/changes/latest.json) && bash .claude/workflow/rpi.sh change confirm \"$id\" --evidence 'eval://confirmed' >/dev/null && bash .claude/workflow/rpi.sh governance build >/dev/null && jq -e '(.capabilities | length) >= 1' .rpi-outfile/product/capabilities.json >/dev/null && jq -e '(.invariants | length) >= 2' .rpi-outfile/product/invariants.json >/dev/null && bash .claude/workflow/rpi.sh governance verify >/dev/null)"
       }
     ],
     "regression": [
       {
         "name": "shell_syntax_all",
         "command": "bash -n .claude/workflow/rpi.sh && find .claude/hooks -maxdepth 1 -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n"
+      },
+      {
+        "name": "change_governance_regression_tests",
+        "command": "python3 -m unittest tests.test_product_intelligence.ChangeIntelligenceTests tests.test_product_intelligence.ProjectGovernanceTests tests.test_product_intelligence.ReconciliationTests tests.test_product_intelligence.ReconciliationIntegrationTests tests.test_product_intelligence.CoreConcurrencyTests tests.test_product_intelligence.StateMigrationTests"
       },
       {
         "name": "pre_tool_use_core_engine_smoke",
@@ -113,7 +121,7 @@
       },
       {
         "name": "core_checks_smoke",
-        "command": "bash .claude/workflow/rpi.sh check discovery --quiet && bash .claude/workflow/rpi.sh check scope --quiet && bash .claude/workflow/rpi.sh check architecture --quiet"
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Core checks smoke' Web >/dev/null && bash .claude/workflow/rpi.sh spec expand \"确认方向B，Must链路L1,L2,L3，Won't链路L4，加权覆盖率目标85%\" >/dev/null && bash .claude/workflow/rpi.sh check discovery --quiet && bash .claude/workflow/rpi.sh check scope --quiet && bash .claude/workflow/rpi.sh check architecture --quiet)"
       },
       {
         "name": "architecture_scan_limit_runtime",
@@ -121,11 +129,11 @@
       },
       {
         "name": "mvp_override_waiver_pass",
-        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Override waiver pass' Web >/dev/null && bash .claude/workflow/rpi.sh mode profile apply strict-regulated >/dev/null && bash .claude/workflow/rpi.sh init bootstrap --force 'Override waiver pass' Web >/dev/null && sed -i.bak 's/^- 选择方向：.*/- 选择方向：B（核心可用级）/' .rpi-outfile/specs/l0/discovery.md && sed -i.bak 's/^- 覆盖率目标：.*/- 覆盖率目标：P0 >= 75%/' .rpi-outfile/specs/l0/discovery.md && sed -i.bak 's/^- 加权覆盖率目标：.*/- 加权覆盖率目标：80%/' .rpi-outfile/specs/l0/discovery.md && rm -f .rpi-outfile/specs/l0/discovery.md.bak && bash .claude/workflow/rpi.sh check discovery --quiet)"
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Override waiver pass' Web >/dev/null && bash .claude/workflow/rpi.sh mode profile apply strict-regulated >/dev/null && bash .claude/workflow/rpi.sh init bootstrap --force 'Override waiver pass' Web >/dev/null && bash .claude/workflow/rpi.sh spec expand \"确认方向B，Must链路L1,L2,L3，Won't链路L4，加权覆盖率目标80%\" >/dev/null && sed -i.bak 's/^- 覆盖率目标：.*/- 覆盖率目标：P0 >= 75%/' .rpi-outfile/specs/l0/discovery.md && sed -i.bak 's/^  - 无调权.*/  - 提升搜索:用户明确优先验证/' .rpi-outfile/specs/l0/discovery.md && sed -i.bak '/^  - 提升搜索:/a\\  - 降权报表:保持当前范围' .rpi-outfile/specs/l0/discovery.md && rm -f .rpi-outfile/specs/l0/discovery.md.bak && bash .claude/workflow/rpi.sh check discovery --quiet)"
       },
       {
         "name": "mvp_override_missing_demote_fails",
-        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Override enforce fail' Web >/dev/null && bash .claude/workflow/rpi.sh mode profile apply strict-regulated >/dev/null && bash .claude/workflow/rpi.sh init bootstrap --force 'Override enforce fail' Web >/dev/null && sed -i.bak 's/^- 选择方向：.*/- 选择方向：B（核心可用级）/' .rpi-outfile/specs/l0/discovery.md && sed -i.bak 's/^- 覆盖率目标：.*/- 覆盖率目标：P0 >= 75%/' .rpi-outfile/specs/l0/discovery.md && sed -i.bak 's/^- 加权覆盖率目标：.*/- 加权覆盖率目标：80%/' .rpi-outfile/specs/l0/discovery.md && sed -i.bak '/^  - 降权 /d' .rpi-outfile/specs/l0/discovery.md && rm -f .rpi-outfile/specs/l0/discovery.md.bak && ! bash .claude/workflow/rpi.sh check discovery --quiet)"
+        "command": "tmp=$(mktemp -d); cp -r .claude \"$tmp\"/; cp -r .rpi-blueprint \"$tmp\"/; (cd \"$tmp\" && export CLAUDE_PROJECT_DIR=\"$tmp\" && bash .claude/workflow/rpi.sh init bootstrap 'Override enforce fail' Web >/dev/null && bash .claude/workflow/rpi.sh mode profile apply strict-regulated >/dev/null && bash .claude/workflow/rpi.sh init bootstrap --force 'Override enforce fail' Web >/dev/null && bash .claude/workflow/rpi.sh spec expand \"确认方向B，Must链路L1,L2,L3，Won't链路L4，加权覆盖率目标80%\" >/dev/null && sed -i.bak 's/^- 覆盖率目标：.*/- 覆盖率目标：P0 >= 75%/' .rpi-outfile/specs/l0/discovery.md && sed -i.bak 's/^  - 无调权.*/  - 提升搜索:用户明确优先验证/' .rpi-outfile/specs/l0/discovery.md && rm -f .rpi-outfile/specs/l0/discovery.md.bak && ! bash .claude/workflow/rpi.sh check discovery --quiet)"
       },
       {
         "name": "doctor_runs",

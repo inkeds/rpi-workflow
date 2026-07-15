@@ -68,18 +68,19 @@ def read_json_obj(path: Path) -> Dict[str, Any]:
 
 def write_json_atomic(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_path = tempfile.mkstemp(prefix=f"{path.name}.tmp.", dir=str(path.parent))
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(data, handle, ensure_ascii=False, indent=2)
-            handle.write("\n")
-        os.replace(tmp_path, path)
-    finally:
+    with file_lock.exclusive_lock(path):
+        fd, tmp_path = tempfile.mkstemp(prefix=f"{path.name}.tmp.", dir=str(path.parent))
         try:
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
-        except OSError:
-            pass
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump(data, handle, ensure_ascii=False, indent=2)
+                handle.write("\n")
+            os.replace(tmp_path, path)
+        finally:
+            try:
+                if os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+            except OSError:
+                pass
 
 
 def append_jsonl(path: Path, row: Dict[str, Any]) -> None:
@@ -294,6 +295,7 @@ def write_idle_task(paths: Paths, phase: str = "M-1") -> None:
         "spec_refs": [],
         "context_refs": [],
         "notes": [],
+        "change_refs": [],
         "phase_state": {"current_action": "idle", "next_actions": []},
         "classification": {"root_cause": "unknown", "note": ""},
         "tdd": {
@@ -1957,6 +1959,15 @@ def cmd_start(paths: Paths, argv: Sequence[str]) -> int:
     if phase == "M-1" and not explicit_spec_refs:
         spec_refs_csv = ".rpi-outfile/product/sources.json,.rpi-outfile/product/claims.json"
 
+    latest_change_file = paths.state_dir / "changes" / "latest.json"
+    latest_change = read_json_obj(latest_change_file)
+    change_id = str_value(latest_change.get("change_id", ""), "")
+    change_status = str_value(latest_change.get("status", ""), "")
+    if phase != "M-1" and change_status == "pending_decision":
+        print(f"Start blocked: change {change_id or 'unknown'} has unresolved product decisions.", file=sys.stderr)
+        print("Confirm the change decision and update the applicable spec before starting implementation.", file=sys.stderr)
+        return 1
+
     task_context_dir = paths.project_dir / ".rpi-outfile" / "specs" / "tasks" / task_id
     if not task_context_dir.exists():
         task_context_dir.mkdir(parents=True, exist_ok=True)
@@ -2107,6 +2118,15 @@ def cmd_start(paths: Paths, argv: Sequence[str]) -> int:
         "spec_refs": spec_refs_compact,
         "context_refs": context_refs_compact,
         "notes": [],
+        "change": {
+            "change_id": change_id,
+            "status_at_start": change_status or "untracked",
+            "change_type": str_value(latest_change.get("change_type", ""), ""),
+            "affected_domains": latest_change.get("affected_domains", []) if isinstance(latest_change.get("affected_domains", []), list) else [],
+            "capability_refs": latest_change.get("affected_capabilities", []) if isinstance(latest_change.get("affected_capabilities", []), list) else [],
+            "invariant_refs": latest_change.get("affected_invariants", []) if isinstance(latest_change.get("affected_invariants", []), list) else [],
+        },
+        "change_refs": [change_id] if change_id else [],
         "phase_state": {"current_action": "implement", "next_actions": ["implement", "check", "close"]},
         "classification": {"root_cause": "unknown", "note": ""},
         "tdd": {
@@ -2154,6 +2174,12 @@ def cmd_start(paths: Paths, argv: Sequence[str]) -> int:
         "owner": owner,
     }
     write_json_atomic(paths.current_task_file, task_payload)
+    if change_id and change_status in {"ready", "spec_update_required"}:
+        latest_change["status"] = "active"
+        latest_change["task_id"] = task_id
+        latest_change["activated_at"] = ts
+        write_json_atomic(paths.state_dir / "changes" / f"{change_id}.json", latest_change)
+        write_json_atomic(latest_change_file, latest_change)
     write_json_atomic(paths.phase_file, {"phase": phase, "spec_ratio": ratio, "updated_at": ts})
     contract_file = write_portable_contract(paths, task_payload, transition="started")
     write_json_atomic(paths.current_task_file, task_payload)
@@ -2333,6 +2359,35 @@ def cmd_close(paths: Paths, argv: Sequence[str]) -> int:
             return 1
         print("Warning: code changed without spec write-back, but continue because strict_mode=false.", file=sys.stderr)
 
+    reconciliation_status = "not_run"
+    reconciliation_report = ""
+    if result == "pass" and phase != "M-1":
+        reconciliation_engine = paths.project_dir / ".rpi" / "core" / "reconciliation.py"
+        if reconciliation_engine.exists():
+            proc = subprocess.run(
+                [sys.executable, str(reconciliation_engine), "--project-dir", str(paths.project_dir), "run", "--task", task_id],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            try:
+                reconciliation_payload = json.loads(proc.stdout) if proc.stdout.strip() else {}
+            except json.JSONDecodeError:
+                reconciliation_payload = {}
+            reconciliation_status = str_value(reconciliation_payload.get("status", "error"), "error")
+            reconciliation_report = str(paths.state_dir / "reconciliation" / f"{task_id}.json")
+            if proc.returncode != 0 or reconciliation_status != "pass":
+                if strict_mode:
+                    print("Close blocked: design/implementation reconciliation failed.", file=sys.stderr)
+                    for item in reconciliation_payload.get("issues", []) if isinstance(reconciliation_payload.get("issues", []), list) else []:
+                        if isinstance(item, dict):
+                            print(f"- {item.get('category', 'issue')}: {item.get('message', '')}", file=sys.stderr)
+                    return 1
+                print("Warning: reconciliation failed, but continue because strict_mode=false.", file=sys.stderr)
+        elif strict_mode:
+            print("Close blocked: reconciliation engine is missing.", file=sys.stderr)
+            return 1
+
     ts = utc_now()
     archive_dir = paths.log_dir / "tasks"
     archive_dir.mkdir(parents=True, exist_ok=True)
@@ -2351,6 +2406,7 @@ def cmd_close(paths: Paths, argv: Sequence[str]) -> int:
         "code_edit_events": code_edit_events,
         "spec_edit_events": spec_edit_events,
     }
+    archive_payload["reconciliation"] = {"status": reconciliation_status, "report": reconciliation_report}
     archive_payload["audit_pack"] = audit_pack_path
     archive_payload["closed_at"] = ts
     archive_payload["last_updated_at"] = ts

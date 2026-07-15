@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rpi.local/schemas/reconciliation.schema.json",
+  "title": "RPI Design Implementation Reconciliation",
+  "type": "object",
+  "required": ["task_id", "status", "classification", "changed_paths", "issues"],
+  "properties": {
+    "task_id": {"type": "string"},
+    "status": {"enum": ["pass", "fail"]},
+    "classification": {"enum": ["aligned", "design_or_evidence_gap", "implementation_missing", "implementation_exceeds_spec", "spec_outdated", "requirement_changed", "unknown"]},
+    "changed_paths": {"type": "array", "items": {"type": "string"}},
+    "issues": {"type": "array", "items": {"type": "object"}}
+  }
+}

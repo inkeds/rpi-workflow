@@ -5,11 +5,22 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
 import pre_tool_use_core as pre_core
+
+
+CORE_DIR = Path(__file__).resolve().parents[3] / ".rpi" / "core"
+if str(CORE_DIR) not in sys.path:
+    sys.path.insert(0, str(CORE_DIR))
+
+try:
+    import change_intelligence
+except ImportError:  # Explicit degraded operation for older installations.
+    change_intelligence = None
 
 
 def utc_now() -> str:
@@ -38,6 +49,14 @@ def append_event(log_dir: Path, event_log: Path, payload: Dict[str, Any]) -> Non
     if not log_dir.exists():
         return
     pre_core.append_jsonl_line(event_log, json.dumps(payload, ensure_ascii=False))
+
+
+def write_json_file(path: Path, payload: Dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with pre_core.file_lock.exclusive_lock(path):
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        tmp.replace(path)
 
 
 def str_value(value: Any, default: str = "") -> str:
@@ -234,6 +253,69 @@ def main() -> int:
         "  4) TDD first for code changes\n"
         "  5) Leave trace logs for every phase transition and gate"
     )
+
+    latest_change_path = state_dir / "changes" / "latest.json"
+    latest_change = load_json_file(latest_change_path)
+    if (
+        prompt_raw.strip()
+        and change_intelligence is not None
+        and change_intelligence.is_explicit_confirmation(prompt_raw)
+        and str_value(latest_change.get("status", ""), "") == "pending_decision"
+    ):
+        try:
+            confirmed = change_intelligence.confirm_change(
+                project_dir,
+                str_value(latest_change.get("change_id", ""), ""),
+                f"user-prompt://{utc_now()}:{prompt_excerpt}",
+            )
+            message += (
+                "\n\n[RPI Decision Confirmation]\n"
+                f"- change_id: {confirmed.get('change_id', '')}\n"
+                "- status: spec_update_required\n"
+                "- hard_rule: update and verify the applicable Spec before implementation"
+            )
+        except ValueError:
+            pass
+
+    if prompt_raw.strip() and change_intelligence is not None and not change_intelligence.is_explicit_confirmation(prompt_raw):
+        try:
+            change = change_intelligence.analyze_change(prompt_raw)
+            if change.get("repository_change_requested"):
+                if task_id and status == "in_progress" and change_intelligence.targets_active_task(prompt_raw):
+                    change["task_id"] = task_id
+                    change["relation"] = "active_task_addition"
+                    refs = current_task.get("change_refs", []) if isinstance(current_task.get("change_refs", []), list) else []
+                    current_task["change_refs"] = list(dict.fromkeys([*refs, change.get("change_id", "")]))
+                    write_json_file(current_task_file, current_task)
+                change_intelligence.persist_analysis(project_dir, change)
+                message += (
+                    "\n\n[RPI Change Analysis]\n"
+                    f"- change_id: {change.get('change_id', '')}\n"
+                    f"- change_type: {change.get('change_type', '')}\n"
+                    f"- governance: {change.get('governance_level', '')}\n"
+                    f"- affected_domains: {','.join(change.get('affected_domains', [])) or 'unresolved'}\n"
+                    f"- implementation_allowed: {str(bool(change.get('implementation_allowed'))).lower()}\n"
+                    f"- status: {change.get('status', '')}\n"
+                    f"- next_action: {change.get('next_action', '')}"
+                )
+                if change.get("relation") == "active_task_addition":
+                    message += f"\n- linked_active_task: {task_id}"
+                decisions = change.get("decisions_required", [])
+                if decisions:
+                    topics = [str(item.get("topic", "")) for item in decisions if isinstance(item, dict) and item.get("topic")]
+                    if topics:
+                        message += f"\n- decisions_required: {','.join(topics)}"
+                    for item in decisions:
+                        if not isinstance(item, dict):
+                            continue
+                        message += (
+                            f"\n- decision: {item.get('decision_id', '')} topic={item.get('topic', '')} "
+                            f"options={','.join(item.get('options', []))} recommended={item.get('recommended_option', '')}"
+                        )
+                if not change.get("implementation_allowed"):
+                    message += "\n- hard_rule: analyze and resolve the change gate before production code edits"
+        except ValueError:
+            pass
 
     context_refs = current_task.get("context_refs", [])
     if isinstance(context_refs, list):

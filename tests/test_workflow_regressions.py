@@ -109,6 +109,8 @@ class DiscoveryMaterializationTests(unittest.TestCase):
             self.assertIn("学员", discovery)
             self.assertIn("课程播放", discovery)
             self.assertIn("VIP 权益", discovery)
+            self.assertIn("L1：", discovery)
+            self.assertIn("L2：", discovery)
             self.assertNotIn("一线业务操作人员", discovery)
             self.assertNotIn("用户登录并创建核心记录", discovery)
             self.assertIn("短视频/音频播放", tasks)

@@ -28,7 +28,15 @@ def exclusive_lock(path: Path, timeout_seconds: float = 10.0, poll_seconds: floa
 
     if fcntl is not None:
         with lock_path.open("a", encoding="utf-8") as lock_handle:
-            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+            deadline = time.monotonic() + max(timeout_seconds, 0.0)
+            while True:
+                try:
+                    fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except BlockingIOError:
+                    if timeout_seconds <= 0.0 or time.monotonic() >= deadline:
+                        raise TimeoutError(f"Timed out waiting for lock: {lock_path}")
+                    time.sleep(max(poll_seconds, 0.01))
             try:
                 yield
             finally:

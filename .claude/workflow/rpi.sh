@@ -11,6 +11,10 @@ GUARDRAILS_ENGINE="$ENGINE_DIR/guardrails_tool.py"
 SPEC_STATE_ENGINE="$ENGINE_DIR/spec_state_tool.py"
 AUTOMATION_ENGINE="$ENGINE_DIR/automation_tool.py"
 PRODUCT_INTELLIGENCE_ENGINE="$PROJECT_DIR/.rpi/core/product_intelligence.py"
+CHANGE_INTELLIGENCE_ENGINE="$PROJECT_DIR/.rpi/core/change_intelligence.py"
+PROJECT_GOVERNANCE_ENGINE="$PROJECT_DIR/.rpi/core/project_governance.py"
+RECONCILIATION_ENGINE="$PROJECT_DIR/.rpi/core/reconciliation.py"
+STATE_MIGRATION_ENGINE="$PROJECT_DIR/.rpi/core/state_migrations.py"
 ADAPTER_ENGINE="$PROJECT_DIR/.rpi/core/adapter_tool.py"
 EVAL_ENGINE="$PROJECT_DIR/.rpi/core/eval_tool.py"
 
@@ -35,6 +39,9 @@ Primary Subcommands:
   observe <logs|trace|evals|audit-pack|audit-report|recover> [args...]
   auto <run|review|memory|entropy> [args...]
   idea <capture|directions|select|transition|status> [args...]
+  change <analyze|confirm|status> [args...]
+  governance <build|verify|migrate|capability> [args...]
+  reconcile <run|status> [args...]
   compat <setup|doctor|verify> [args...]
   eval <list|init|compare> [args...]
   help
@@ -145,6 +152,50 @@ run_product_intelligence() {
     exit 1
   fi
   PYTHONIOENCODING="utf-8" PYTHONUTF8="1" "$PYTHON_BIN" "$PRODUCT_INTELLIGENCE_ENGINE" --project-dir "$PROJECT_DIR" "$@"
+}
+
+run_change_intelligence() {
+  require_python_or_exit "change intelligence"
+  if [[ ! -f "$CHANGE_INTELLIGENCE_ENGINE" ]]; then
+    echo "Missing change intelligence engine: $CHANGE_INTELLIGENCE_ENGINE" >&2
+    exit 1
+  fi
+  PYTHONIOENCODING="utf-8" PYTHONUTF8="1" "$PYTHON_BIN" "$CHANGE_INTELLIGENCE_ENGINE" --project-dir "$PROJECT_DIR" "$@"
+}
+
+run_project_governance() {
+  require_python_or_exit "project governance"
+  if [[ ! -f "$PROJECT_GOVERNANCE_ENGINE" ]]; then
+    echo "Missing project governance engine: $PROJECT_GOVERNANCE_ENGINE" >&2
+    exit 1
+  fi
+  PYTHONIOENCODING="utf-8" PYTHONUTF8="1" "$PYTHON_BIN" "$PROJECT_GOVERNANCE_ENGINE" --project-dir "$PROJECT_DIR" "$@"
+}
+
+refresh_project_governance() {
+  if [[ -f "$PROJECT_GOVERNANCE_ENGINE" && -f "$CHANGE_INTELLIGENCE_ENGINE" ]]; then
+    run_project_governance build >/dev/null
+  else
+    echo "Warning: project governance core unavailable; continuing in explicit degraded mode." >&2
+  fi
+}
+
+run_reconciliation() {
+  require_python_or_exit "design reconciliation"
+  if [[ ! -f "$RECONCILIATION_ENGINE" ]]; then
+    echo "Missing reconciliation engine: $RECONCILIATION_ENGINE" >&2
+    exit 1
+  fi
+  PYTHONIOENCODING="utf-8" PYTHONUTF8="1" "$PYTHON_BIN" "$RECONCILIATION_ENGINE" --project-dir "$PROJECT_DIR" "$@"
+}
+
+run_state_migration() {
+  require_python_or_exit "governance state migration"
+  if [[ ! -f "$STATE_MIGRATION_ENGINE" ]]; then
+    echo "Missing state migration engine: $STATE_MIGRATION_ENGINE" >&2
+    exit 1
+  fi
+  PYTHONIOENCODING="utf-8" PYTHONUTF8="1" "$PYTHON_BIN" "$STATE_MIGRATION_ENGINE" --project-dir "$PROJECT_DIR" "$@"
 }
 
 run_adapter_tool() {
@@ -290,13 +341,16 @@ HELP
       fi
       run_project_ops bootstrap "$idea" "$platform"
       run_automation create-mvp "$idea" "$platform"
+      refresh_project_governance
       ;;
     deepen)
       run_automation deepen-mvp "$@"
+      refresh_project_governance
       ;;
     bootstrap)
       ensure_env_ready
       run_project_ops bootstrap "$@"
+      refresh_project_governance
       ;;
   esac
 }
@@ -341,6 +395,70 @@ run_idea_group() {
       ;;
     *)
       echo "Unknown idea action: $action" >&2
+      return 1
+      ;;
+  esac
+}
+
+run_change_group() {
+  local action="${1:-status}"
+  shift || true
+  case "$action" in
+    analyze)
+      if [[ -z "${1:-}" ]]; then
+        echo 'Usage: bash .claude/workflow/rpi.sh change analyze "<request>" [--no-persist]' >&2
+        return 1
+      fi
+      run_change_intelligence analyze "$@"
+      ;;
+    status)
+      run_change_intelligence status
+      ;;
+    confirm)
+      run_change_intelligence confirm "$@"
+      ;;
+    help|--help|-h)
+      echo 'Usage: bash .claude/workflow/rpi.sh change <analyze|confirm|status> [args...]'
+      ;;
+    *)
+      echo "Unknown change action: $action" >&2
+      return 1
+      ;;
+  esac
+}
+
+run_governance_group() {
+  local action="${1:-verify}"
+  shift || true
+  case "$action" in
+    build|verify|capability)
+      run_project_governance "$action" "$@"
+      ;;
+    migrate)
+      run_state_migration "$@"
+      ;;
+    help|--help|-h)
+      echo 'Usage: bash .claude/workflow/rpi.sh governance <build|verify|migrate|capability> [args...]'
+      ;;
+    *)
+      echo "Unknown governance action: $action" >&2
+      return 1
+      ;;
+  esac
+}
+
+run_reconcile_group() {
+  local action="${1:-status}"
+  shift || true
+  case "$action" in
+    run|status)
+      run_reconciliation "$action" "$@"
+      ;;
+    help|--help|-h)
+      echo 'Usage: bash .claude/workflow/rpi.sh reconcile <run|status> [args...]'
+      ;;
+    *)
+      echo "Unknown reconcile action: $action" >&2
       return 1
       ;;
   esac
@@ -410,6 +528,7 @@ run_task_group() {
       ensure_env_ready
       run_task_flow gates-auto
       run_task_flow close "$@"
+      refresh_project_governance
       ;;
     phase)
       ensure_env_ready
@@ -528,6 +647,7 @@ run_spec_group() {
       ;;
     expand)
       run_automation spec-expand "$@"
+      refresh_project_governance
       ;;
     *)
       echo "Unknown spec action: $action" >&2
@@ -700,6 +820,15 @@ case "$subcommand" in
     ;;
   idea)
     run_idea_group "$@"
+    ;;
+  change)
+    run_change_group "$@"
+    ;;
+  governance)
+    run_governance_group "$@"
+    ;;
+  reconcile)
+    run_reconcile_group "$@"
     ;;
   compat)
     run_compat_group "$@"

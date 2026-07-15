@@ -996,6 +996,37 @@ def cmd_anti_entropy(paths: Paths, argv: Sequence[str]) -> int:
         if not run_arch_check():
             add_issue("high", "architecture", "architecture boundary check failed", False, False)
 
+    governance_engine = paths.base.project_dir / ".rpi" / "core" / "project_governance.py"
+    if governance_engine.exists():
+        governance_proc = subprocess.run(
+            [sys.executable, str(governance_engine), "--project-dir", str(paths.base.project_dir), "verify"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if governance_proc.returncode != 0:
+            add_issue("high", "project_governance", "capability/invariant registry verification failed", False, False)
+
+    latest_change = read_json_obj(paths.base.state_dir / "changes" / "latest.json")
+    if str_value(latest_change.get("status", ""), "") == "pending_decision":
+        add_issue(
+            "high",
+            "pending_product_decision",
+            f"change {str_value(latest_change.get('change_id', 'unknown'), 'unknown')} has unresolved product decisions",
+            False,
+            False,
+        )
+
+    current_task = read_json_obj(paths.base.current_task_file)
+    current_task_id = str_value(current_task.get("task_id", ""), "")
+    latest_reconciliation = read_json_obj(paths.base.state_dir / "reconciliation" / "latest.json")
+    if (
+        current_task_id
+        and str_value(latest_reconciliation.get("task_id", ""), "") == current_task_id
+        and str_value(latest_reconciliation.get("status", ""), "") == "fail"
+    ):
+        add_issue("high", "reconciliation", "current task has unresolved design/implementation reconciliation issues", False, False)
+
     if state_file.exists():
         state_mtime = file_mtime(state_file)
         latest_spec_mtime = max(file_mtime(discovery_file), file_mtime(spec_file), file_mtime(tasks_file))
@@ -2209,26 +2240,28 @@ def cmd_agent_memory_update(paths: Paths, argv: Sequence[str]) -> int:
 
     if paths.agents_file.exists():
         snapshot_before_mutation(paths, "agent_memory_update", [paths.agents_file], actor="agent-memory")
+    agents_lock = paths.base.state_dir / "locks" / "agents"
+    with file_lock.exclusive_lock(agents_lock):
+        if paths.agents_file.exists():
+            agents_text = paths.agents_file.read_text(encoding="utf-8", errors="ignore")
+            if "## Learned Guards" not in agents_text:
+                with paths.agents_file.open("a", encoding="utf-8") as handle:
+                    handle.write("\n## Learned Guards\n")
+        else:
+            paths.agents_file.write_text(
+                "# AGENTS.md\n\n"
+                "## Global Policy\n"
+                "- All code changes must be traceable to spec refs.\n"
+                "- Prefer deterministic checks before autonomous retries.\n"
+                "- Capture every recurring failure as a durable guard.\n\n"
+                "## Learned Guards\n",
+                encoding="utf-8",
+            )
         agents_text = paths.agents_file.read_text(encoding="utf-8", errors="ignore")
-        if "## Learned Guards" not in agents_text:
-            with paths.agents_file.open("a", encoding="utf-8") as handle:
-                handle.write("\n## Learned Guards\n")
-    else:
-        paths.agents_file.write_text(
-            "# AGENTS.md\n\n"
-            "## Global Policy\n"
-            "- All code changes must be traceable to spec refs.\n"
-            "- Prefer deterministic checks before autonomous retries.\n"
-            "- Capture every recurring failure as a durable guard.\n\n"
-            "## Learned Guards\n",
-            encoding="utf-8",
-        )
-
-    agents_text = paths.agents_file.read_text(encoding="utf-8", errors="ignore")
-    if f"fingerprint: {signature}" in agents_text:
-        if not quiet:
-            safe_print(f"agent memory already exists: {signature}")
-        return 0
+        if f"fingerprint: {signature}" in agents_text:
+            if not quiet:
+                safe_print(f"agent memory already exists: {signature}")
+            return 0
 
     if root_cause == "spec_missing":
         prevention_lines = [
@@ -2253,31 +2286,37 @@ def cmd_agent_memory_update(paths: Paths, argv: Sequence[str]) -> int:
 
     lesson_id = f"LESSON-{utc_compact_now()}"
     ts = utc_now()
-    with paths.agents_file.open("a", encoding="utf-8") as handle:
-        handle.write("\n")
-        handle.write(f"### {lesson_id}\n")
-        handle.write(f"- fingerprint: {signature}\n")
-        handle.write(f"- created_at: {ts}\n")
-        handle.write(f"- task_id: {task_id or 'unknown'}\n")
-        handle.write(f"- result: {result}\n")
-        handle.write(f"- root_cause: {root_cause}\n")
-        handle.write(f"- note: {note if note else 'N/A'}\n")
-        handle.write(f"- primary_evidence: {primary_evidence}\n")
-        handle.write("- prevention:\n")
-        for line in prevention_lines:
-            handle.write(f"  - {line}\n")
-        handle.write("- observed_gate_failures:\n")
-        if gate_evidence:
-            for line in gate_evidence:
+    with file_lock.exclusive_lock(agents_lock):
+        agents_text = paths.agents_file.read_text(encoding="utf-8", errors="ignore") if paths.agents_file.exists() else ""
+        if f"fingerprint: {signature}" in agents_text:
+            if not quiet:
+                safe_print(f"agent memory already exists: {signature}")
+            return 0
+        with paths.agents_file.open("a", encoding="utf-8") as handle:
+            handle.write("\n")
+            handle.write(f"### {lesson_id}\n")
+            handle.write(f"- fingerprint: {signature}\n")
+            handle.write(f"- created_at: {ts}\n")
+            handle.write(f"- task_id: {task_id or 'unknown'}\n")
+            handle.write(f"- result: {result}\n")
+            handle.write(f"- root_cause: {root_cause}\n")
+            handle.write(f"- note: {note if note else 'N/A'}\n")
+            handle.write(f"- primary_evidence: {primary_evidence}\n")
+            handle.write("- prevention:\n")
+            for line in prevention_lines:
                 handle.write(f"  - {line}\n")
-        else:
-            handle.write("  - none\n")
-        handle.write("- observed_blocks:\n")
-        if block_evidence:
-            for line in block_evidence:
-                handle.write(f"  - {line}\n")
-        else:
-            handle.write("  - none\n")
+            handle.write("- observed_gate_failures:\n")
+            if gate_evidence:
+                for line in gate_evidence:
+                    handle.write(f"  - {line}\n")
+            else:
+                handle.write("  - none\n")
+            handle.write("- observed_blocks:\n")
+            if block_evidence:
+                for line in block_evidence:
+                    handle.write(f"  - {line}\n")
+            else:
+                handle.write("  - none\n")
 
     state_row = {
         "ts": ts,
@@ -3918,7 +3957,8 @@ def materialize_l0_docs(
         if not token:
             return ""
         if re.fullmatch(r"L[1-9][0-9]*", token):
-            return desc_map.get(token, token)
+            description = desc_map.get(token, token)
+            return token if description == token else f"{token}：{description}"
         return token
 
     must_desc = [item_desc(x) for x in must_ids if item_desc(x)]
@@ -4213,6 +4253,10 @@ def materialize_l0_docs(
             f"  - {core_object}：核心业务结果承载对象",
             f"  - {term_example}：{term_definition}",
             "  - 审计轨迹：用于回放操作、状态与结果的证据链",
+            "  - 核心链路：直接产生本阶段用户结果的端到端流程",
+            "  - 异常链路：主流程失败、冲突或不可用时的可恢复路径",
+            "  - 治理规则：约束权限、状态、成本和审计的稳定业务规则",
+            "  - 验收证据：证明用户结果和失败边界真实成立的测试或运行记录",
             f"- 限界上下文（Bounded Context）：",
         ]
     )
@@ -4236,7 +4280,7 @@ def materialize_l0_docs(
             f"- 加权覆盖率目标：{weighted_target}",
             f"- M-1~M2 阶段扩展策略：M-1=探索方向与关键能力；M0={profile_phase_strategy(profile, 'M0')}；M1={profile_phase_strategy(profile, 'M1')}；M2={profile_phase_strategy(profile, 'M2')}",
             "- 优先级调权：",
-            "  - 默认不调权；若提升非核心能力，必须同步记录降权项与影响说明",
+            "  - 无调权（需要时另行记录范围交换与理由）",
             "- M0 Must（1-3）：",
         ]
     )

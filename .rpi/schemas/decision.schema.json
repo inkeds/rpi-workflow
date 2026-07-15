@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rpi.local/schemas/decision.schema.json",
+  "title": "RPI Change Decision",
+  "type": "object",
+  "required": ["decision_id", "topic", "reason", "status", "options", "recommended_option"],
+  "properties": {
+    "decision_id": {"type": "string", "pattern": "^DEC-"},
+    "topic": {"type": "string"},
+    "reason": {"type": "string"},
+    "status": {"enum": ["pending", "confirmed", "superseded"]},
+    "options": {"type": "array", "minItems": 2, "items": {"type": "string"}},
+    "recommended_option": {"type": "string"},
+    "selected_option": {"type": ["string", "null"]},
+    "confirmation_evidence": {"type": "array", "items": {"type": "string"}},
+    "confirmed_at": {"type": "string"}
+  }
+}

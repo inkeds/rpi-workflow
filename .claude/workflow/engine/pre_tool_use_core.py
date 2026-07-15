@@ -487,6 +487,35 @@ class PreToolUseCore:
             "red_written": red_written,
         }
 
+    def enforce_change_gate_if_needed(self) -> Optional[Tuple[str, str]]:
+        task_change = self.current_task.get("change", {})
+        linked_ids: list[str] = []
+        if isinstance(task_change, dict) and str_value(task_change.get("change_id", ""), ""):
+            linked_ids.append(str_value(task_change.get("change_id", ""), ""))
+        refs = self.current_task.get("change_refs", [])
+        if isinstance(refs, list):
+            linked_ids.extend(str(item) for item in refs if str(item))
+        for linked_change_id in dict.fromkeys(linked_ids):
+            change_file = self.paths.state_dir / "changes" / f"{linked_change_id}.json"
+            change = load_json_file(change_file)
+            if str_value(change.get("status", ""), "") != "pending_decision":
+                continue
+            change_id = str_value(change.get("change_id", linked_change_id), linked_change_id)
+            topics_raw = change.get("decisions_required", [])
+            topics = []
+            if isinstance(topics_raw, list):
+                for item in topics_raw:
+                    if isinstance(item, dict) and str_value(item.get("topic", ""), ""):
+                        topics.append(str_value(item.get("topic", ""), ""))
+            reason = (
+                f"Blocked: change {change_id} has unresolved product decisions"
+                f" ({','.join(topics) if topics else 'review required'}). "
+                "Confirm the decision and update the applicable spec before production code edits."
+            )
+            self.event_block(reason, {"change_id": change_id, "decision_topics": topics})
+            return "deny", reason
+        return None
+
     @staticmethod
     def has_active_task(ctx: Dict[str, Any]) -> bool:
         return bool(ctx.get("task_id")) and str_value(ctx.get("status", "idle")) == "in_progress"
@@ -1047,6 +1076,11 @@ class PreToolUseCore:
         if risk_decision is not None:
             return risk_decision
 
+        if is_code_path(target_path):
+            change_decision = self.enforce_change_gate_if_needed()
+            if change_decision is not None:
+                return change_decision
+
         planning_path = is_planning_path(target_path)
         task_ctx = self.task_context()
         task_id = str_value(task_ctx.get("task_id", ""))
@@ -1117,6 +1151,10 @@ class PreToolUseCore:
         requires_task_context = bash_command_mutates_repo(cmd) and (bash_command_targets_code(cmd) or bash_command_is_opaque_codegen(cmd))
         if not requires_task_context:
             return None
+
+        change_decision = self.enforce_change_gate_if_needed()
+        if change_decision is not None:
+            return change_decision
 
         task_ctx = self.task_context()
         task_id = str_value(task_ctx.get("task_id", ""))

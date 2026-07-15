@@ -32,7 +32,17 @@ RPI Workflow 是一个面向普通创意者的 AI 产品定义与可靠交付框
   → 证据与持续演进
 ```
 
+普通自然语言中的“新增、修改、修复、重构”等请求也会先经过变更分类。涉及产品模式、资产归属、角色权限、费用、隐私或稳定不变量时，RPI 会形成待决策门禁；在决策和 Spec 更新完成前，不允许直接进入生产代码实现。
+
+变更只约束与它显式关联的任务。讨论其他候选需求不会冻结正在执行的无关任务；使用“在当前任务中”“在此基础上再加”等明确表达时，新变更会加入当前任务的 `change_refs`。决策以独立 `DEC-*` 记录，可逐项确认，并保留选项、选择结果和确认依据。
+
 RPI Core 与具体 Agent 解耦。目前为 **Codex CLI** 和 **Claude Code CLI** 提供适配层，两端共享同一份产品事实、Spec、任务状态和交付证据。
+
+### 单文件快速启动支线
+
+对于暂不安装完整 Workflow 的用户，可单独使用独立发布的 `AI项目初始化与持续迭代协议.md`：下载一个 Markdown 放入项目根目录，即可引导 Agent 完成材料审计、关键决策、V1 边界、AGENTS 规则和后续功能变更协议。初始化完成后，项目依靠自身 AGENTS、设计文档、代码和测试继续演进，不依赖原始聊天或该协议文件持续存在。
+
+单文件版与 RPI 共享“区分事实与推断、变更先分析、设计实现对账、防止静默漂移”的原则，但两者保持独立交付：单文件版不模拟 RPI 的文件锁、事务、Schema、Hook、CLI 和 Eval；需要长期多 Agent 协作、自动门禁和可恢复状态治理时，应使用完整 RPI Workflow。
 
 ## 为什么需要它？
 
@@ -195,11 +205,25 @@ flowchart LR
 | M1 Stabilize | 让产品可重复稳定使用 | 固化契约、异常、集成和回归 | 稳定版本、集成测试、基础可观测 |
 | M2 Operate | 支撑长期运营 | 建立安全、审计、容量和成本治理 | SLA/SLO、恢复、审计和规模治理 |
 
-`Vibe : Spec` 比例仅保留为关注趋势，不作为机械质量指标。Roadmap 管理未来选项，Milestone 管理当前承诺；每个 Milestone 都必须同时包含产品结果、工程证据、退出标准和明确非目标。
+`Vibe-Spec`（界面显示可写作 `Vibe : Spec`）比例仅保留为关注趋势，不作为机械质量指标；RPI 仍以可追溯事实、规范和交付证据为准。Roadmap 管理未来选项，Milestone 管理当前承诺；每个 Milestone 都必须同时包含产品结果、工程证据、退出标准和明确非目标。
 
 ## 主要能力
 
 - **Product Intelligence**：原始素材保真、去营销化、功能拆分、平台推断和冲突识别。
+- **Change Intelligence**：自然语言变更分类、影响领域识别、决策门禁和任务关联。
+- **Project Governance**：能力/不变量注册表与项目专属 AGENTS.md 知识路由。
+- **Reconciliation**：任务关闭前对账需求、Spec、实现、测试与迁移，阻止静默设计漂移。
+
+Project Governance 会生成材料盘点，基于已接受变更生成候选能力和候选不变量，并从仓库真实文件中建立设计、代码、迁移和测试路由。自动生成内容保持 `candidate`，不会自动晋升为产品事实。
+
+多个 Agent 并发写入 Change、Decision、Registry、AGENTS 或 Reconciliation 时使用带超时的平台无关文件锁、持久化原子替换和治理事务日志；进程在多文件更新中途终止时，下次构建会回滚未提交事务。直接迁移与治理构建共享锁顺序，避免跨流程竞态。旧版治理状态可幂等迁移到当前 Schema；损坏状态失败闭锁，未来 Schema 不会被降级覆盖。相似变更会优先复用已有候选能力且合并记录保持幂等；跨度过大的候选会记录拆分原因、建议领域边界和来源变更，不会静默拆分产品语义。
+
+核心治理状态在落盘前执行内置 Schema 校验，无需额外 Python 依赖。人工 Capability 合并与拆分要求证据，并会同步迁移 Change、Invariant 和能力依赖引用，同时保留退休能力的历史链路。
+
+Project Governance 在一次文件树遍历中同时完成材料审计和知识路由，并使用基于文件元数据的增量内容索引：首次构建读取候选文本，后续构建复用未变化文件的领域分类，仅重新读取新增或修改内容。索引具有独立 Schema；格式损坏或旧字段不完整时会安全重建。扫描和状态事务拒绝符号链接越界，并对 JSON 大小、Schema 校验深度和事务恢复路径设置安全边界。
+
+这些机制用于防止持续开发中的事实和设计偏移，不要求项目采用固定文档包、DDD 代码架构或完整能力卡。RPI 只在已有项目证据足够时生成候选治理信息；项目特有的 V1 矩阵、阶段拓扑和详细业务契约仍由 Discovery 与 Spec 决定。
+
 - **Direction Decision**：生成 0～3 个可解释方向、反对理由、验证实验和 Markdown 决策卡。
 - **Claim Lifecycle**：管理推断、假设、选择、验证、事实、否定、过期和替代关系。
 - **Spec Engineering**：构建、验证、同步和关联 Discovery、PRD、Spec 与 Task。
@@ -228,6 +252,14 @@ flowchart LR
 |---|---|
 | 保存和分析创意 | `rpi.sh idea capture "<素材>"` |
 | 查看主张状态 | `rpi.sh idea status` |
+| 分析功能变更 | `rpi.sh change analyze "<需求>"` |
+| 确认高影响变更 | `rpi.sh change confirm <CHG-ID> --evidence "<证据>"` |
+| 生成项目治理路由 | `rpi.sh governance build` |
+| 校验能力与不变量 | `rpi.sh governance verify` |
+| 迁移旧治理状态 | `rpi.sh governance migrate [--dry-run]` |
+| 合并候选能力 | `rpi.sh governance capability merge <TARGET> <SOURCE>... --evidence "..."` |
+| 拆分宽泛能力 | `rpi.sh governance capability split <CAP> --slice "..." --slice "..." --evidence "..."` |
+| 设计与实现对账 | `rpi.sh reconcile run` |
 | 生成产品方向与决策卡 | `rpi.sh idea directions` |
 | 选择候选方向 | `rpi.sh idea select <DIR-ID> --reason "..."` |
 | 生成 Agent Adapter | `rpi.sh compat setup` |

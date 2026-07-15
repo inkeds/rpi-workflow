@@ -55,7 +55,7 @@ bash .claude/workflow/rpi.sh eval compare <baseline.json> <candidate.json> [--ou
   - `A|B`：二选一
   - `...`：可重复或多个值
 
-## 命令总览（8 组）
+## 命令总览
 
 | 斜杠命令 | 分组 | 作用 |
 |---|---|---|
@@ -67,6 +67,36 @@ bash .claude/workflow/rpi.sh eval compare <baseline.json> <candidate.json> [--ou
 | `/rpi-mode` | `mode` | Harness 与 profile 模式切换 |
 | `/rpi-observe` | `observe` | 日志、审计、恢复、评分 |
 | `/rpi-auto` | `auto` | 受控自治、A2A 评审、反熵、经验沉淀 |
+
+平台无关终端还提供三组自然语言变更治理命令：
+
+```bash
+bash .claude/workflow/rpi.sh change analyze "<需求>"
+bash .claude/workflow/rpi.sh change confirm <CHG-ID> --evidence "<确认依据>" [--decision <DEC-ID>] [--option <OPTION>]
+bash .claude/workflow/rpi.sh change status
+
+bash .claude/workflow/rpi.sh governance build
+bash .claude/workflow/rpi.sh governance verify
+bash .claude/workflow/rpi.sh governance migrate [--dry-run]
+bash .claude/workflow/rpi.sh governance capability list [--status candidate]
+bash .claude/workflow/rpi.sh governance capability merge <TARGET-CAP> <SOURCE-CAP>... --evidence "<依据>"
+bash .claude/workflow/rpi.sh governance capability split <CAP-ID> --slice "<子能力一>" --slice "<子能力二>" --evidence "<依据>"
+
+bash .claude/workflow/rpi.sh reconcile run [--task <TASK-ID>]
+bash .claude/workflow/rpi.sh reconcile status
+```
+
+- `change analyze` 生成并保存变更影响状态；普通自然语言 Prompt Hook 会自动执行同类分析。
+- 高影响变更保持 `pending_decision`。可用 `--decision` 和 `--option` 逐项确认；未确认项仍会阻断。全部确认后只进入 `spec_update_required`，不会直接获得代码实现许可。
+- `governance build` 维护能力/不变量注册表和 AGENTS.md 受管路由区块，保留用户自定义内容。
+- `governance build` 使用可恢复事务日志协调 Registry、Change、材料审计和 AGENTS；上次构建若被中断，会先回滚未提交文件快照。
+- `governance build` 单次遍历同时生成材料审计与路由，返回 `index.files/cache_hits/cache_misses/skipped/walks/cache_rebuilt`；未变化文件复用领域索引，损坏索引自动重建，符号链接和超大候选文件不会进入内容扫描。
+- `governance build` 同时输出项目材料审计，并为已接受变更生成候选能力、候选不变量和真实文件路由。
+- `governance migrate` 幂等升级旧版 Change、Decision、Capability、Invariant 和 Reconciliation 状态；`--dry-run` 只报告，不写入。损坏 JSON 会失败闭锁，未来 Schema 会保留并跳过，治理构建不会覆盖不兼容状态。
+- 相似已接受变更会复用候选能力并记录一次性 `merge_history`；重复构建不会重复记录。跨度较大的候选会同时写入兼容标记 `decomposition_review` 和结构化 `decomposition` 原因、建议边界及来源变更，等待人工拆分判断。
+- `capability merge/split` 要求显式证据，并在事务内迁移 Change、Invariant 和 Capability 依赖引用；被合并或拆分的原能力保留为 `retired`，不会删除历史。
+- Change、Decision、Capability、Invariant、Reconciliation 和迁移报告在核心写入路径落盘前执行依赖无关的 Schema 校验，失败时拒绝写入。
+- `reconcile run` 聚合任务的全部 `change_refs`，对账设计、代码、测试执行和迁移；未声明的高风险实现或未解决决策会阻止 Pass 关闭。
 
 ---
 

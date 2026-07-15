@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rpi.local/schemas/migration-report.schema.json",
+  "title": "RPI Governance State Migration Report",
+  "type": "object",
+  "required": ["schema_version", "migrated_at", "dry_run", "changed_count", "error_count", "skipped_future_count", "files"],
+  "properties": {
+    "schema_version": {"type": "integer", "minimum": 1},
+    "migrated_at": {"type": "string"},
+    "dry_run": {"type": "boolean"},
+    "changed_count": {"type": "integer", "minimum": 0},
+    "error_count": {"type": "integer", "minimum": 0},
+    "skipped_future_count": {"type": "integer", "minimum": 0},
+    "files": {"type": "array", "items": {"type": "object"}}
+  }
+}

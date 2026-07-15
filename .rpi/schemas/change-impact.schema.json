@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rpi.local/schemas/change-impact.schema.json",
+  "title": "RPI Change Impact",
+  "type": "object",
+  "required": [
+    "change_id",
+    "request_text",
+    "change_type",
+    "repository_change_requested",
+    "affected_domains",
+    "decisions_required",
+    "governance_level",
+    "implementation_allowed",
+    "status",
+    "next_action"
+  ],
+  "properties": {
+    "change_id": {"type": "string", "pattern": "^CHG-"},
+    "request_text": {"type": "string", "minLength": 1},
+    "change_type": {
+      "enum": ["question", "diagnosis", "local_fix", "feature_change", "cross_domain_change", "product_model_change", "invariant_change", "exploration", "documentation_only"]
+    },
+    "repository_change_requested": {"type": "boolean"},
+    "affected_domains": {"type": "array", "items": {"type": "string"}},
+    "affected_capabilities": {"type": "array", "items": {"type": "string"}},
+    "affected_invariants": {"type": "array", "items": {"type": "string"}},
+    "affected_specs": {"type": "array", "items": {"type": "string"}},
+    "lifecycle_impacts": {"type": "array", "items": {"type": "string"}},
+    "decisions_required": {"type": "array", "items": {"$ref": "decision.schema.json"}},
+    "documents_to_update": {"type": "array", "items": {"type": "string"}},
+    "governance_level": {"enum": ["lightweight", "spec_update_required", "decision_required"]},
+    "implementation_allowed": {"type": "boolean"},
+    "status": {"enum": ["observed", "ready", "pending_decision", "spec_update_required", "active", "reconciled", "closed"]},
+    "next_action": {"type": "string"}
+  }
+}

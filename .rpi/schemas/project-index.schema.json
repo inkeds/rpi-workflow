@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rpi.local/schemas/project-index.schema.json",
+  "title": "RPI Incremental Project File Index",
+  "type": "object",
+  "required": ["schema_version", "updated_at", "entries"],
+  "properties": {
+    "schema_version": {"type": "integer", "minimum": 1},
+    "updated_at": {"type": "string"},
+    "entries": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["mtime_ns", "ctime_ns", "size", "domains", "bucket"],
+        "properties": {
+          "mtime_ns": {"type": "integer", "minimum": 0},
+          "ctime_ns": {"type": "integer", "minimum": 0},
+          "size": {"type": "integer", "minimum": 0},
+          "domains": {"type": "array", "items": {"type": "string"}},
+          "bucket": {"enum": ["design", "code", "tests", "migrations"]}
+        }
+      }
+    }
+  }
+}
