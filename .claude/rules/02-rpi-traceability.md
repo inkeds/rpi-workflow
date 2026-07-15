@@ -10,7 +10,11 @@
 
 - 当前阶段：`.rpi-outfile/state/project_phase.json`
 - 当前任务：`.rpi-outfile/state/current_task.json`
-- 注入上下文清单：`.claude/workflow/context/*.jsonl`
+- 当前产品事实：`.rpi-outfile/product/current_facts.json`
+- Capability / Invariant：`.rpi-outfile/product/capabilities.json`、`.rpi-outfile/product/invariants.json`
+- Change / Decision：`.rpi-outfile/state/changes/`
+- Reconciliation：`.rpi-outfile/state/reconciliation/`
+- 静态注入清单：`.claude/workflow/context/*.jsonl`（仅 Adapter 路由，不是事实源）
 - 事件日志：`.rpi-outfile/logs/events.jsonl`
 - 门控日志：`.rpi-outfile/logs/gate-results.jsonl`
 
@@ -18,9 +22,10 @@
 
 1. `spec_refs`：任务绑定规范来源
 2. `context_refs`：本轮实际注入的上下文包
-3. `phase_state.current_action`：当前动作（implement/check/close）
-4. `phase_state.next_actions`：下一步动作队列
-5. `quality_gate.last_run_status`：最近门控状态
+3. `change_refs`：本任务实际适用的变更
+4. `phase_state.current_action`：当前动作（implement/check/close）
+5. `phase_state.next_actions`：下一步动作队列
+6. `quality_gate.last_run_status`：最近门控状态
 
 ## 根因分类（收口必填）
 
@@ -37,3 +42,5 @@
 2. 执行是否偏离
 3. 哪个阶段引入风险
 4. 哪个门控拦截/放行
+5. 哪些 Change/Decision、Capability/Invariant 受到影响
+6. 设计、代码、测试执行和迁移是否完成对账

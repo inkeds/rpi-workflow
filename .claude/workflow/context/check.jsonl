@@ -2,3 +2,6 @@
 {"file":".rpi-outfile/specs/l0/discovery.md","reason":"validate against agreed mvp scope"}
 {"file":".rpi-outfile/specs/l0/tasks.md","reason":"acceptance criteria baseline"}
 {"file":".rpi-outfile/specs/l2/engineering-guardrails.md","reason":"quality and safety constraints"}
+{"file":".rpi-outfile/product/capabilities.json","reason":"verify implemented behavior against capability boundaries when present"}
+{"file":".rpi-outfile/product/invariants.json","reason":"verify applicable invariants when present"}
+{"file":".rpi-outfile/state/reconciliation/latest.json","reason":"latest design and implementation reconciliation status when present"}

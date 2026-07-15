@@ -143,6 +143,24 @@ bash .claude/workflow/rpi.sh task phase M0 "核心用户链路已确认"
 
 **期望输出**：`PASS`（如果是 `BLOCKED`，按提示补齐缺失项）
 
+随后建立并验证项目治理基线：
+
+```bash
+bash .claude/workflow/rpi.sh governance build
+bash .claude/workflow/rpi.sh governance verify
+```
+
+## 步骤 4.5：分析功能变更（按需）
+
+对现有产品增加、修改或删除功能时，先分析自然语言请求：
+
+```bash
+bash .claude/workflow/rpi.sh change analyze "在待办事项中增加共享协作"
+bash .claude/workflow/rpi.sh change status
+```
+
+若输出包含阻断中的 `DEC-*`，使用 `change confirm` 逐项提供选择和依据。局部修复且不改变行为或契约时，不需要虚构产品变更。
+
 ## 步骤 5：启动任务（30 秒）
 
 ```bash
@@ -186,6 +204,12 @@ cp .claude/workflow/config/gates.minimal.json .claude/workflow/config/gates.json
 
 ## 步骤 8：关闭任务（30 秒）
 
+功能任务先执行设计实现对账：
+
+```bash
+bash .claude/workflow/rpi.sh reconcile run --task TASK-001
+```
+
 ```bash
 /rpi-task close pass auto 待办列表主链路通过
 ```
@@ -195,6 +219,7 @@ cp .claude/workflow/config/gates.minimal.json .claude/workflow/config/gates.json
 - `current_task.json` 重置为 idle
 - 根因分类和 spec 同步状态
 - 若启用审计报表，会自动写入 `.rpi-outfile/audit/reports/`
+- 功能任务保存 reconciliation 结果；未声明的高风险实现或未解决决策会阻止严格模式 Pass
 
 ## 验证完成
 
@@ -209,6 +234,9 @@ tail -5 .rpi-outfile/logs/events.jsonl
 
 # 门控日志（应有 M0 通过记录）
 tail -5 .rpi-outfile/logs/gate-results.jsonl
+
+# 设计实现对账（功能任务应为 pass）
+cat .rpi-outfile/state/reconciliation/latest.json
 
 # 任务归档（应有 TASK-001 目录）
 ls .rpi-outfile/logs/tasks/

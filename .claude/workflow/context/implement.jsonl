@@ -3,4 +3,8 @@
 {"file":".rpi-outfile/specs/l0/epic.md","reason":"mvp boundary and value"}
 {"file":".rpi-outfile/specs/l0/spec.md","reason":"architecture and contracts"}
 {"file":".rpi-outfile/specs/l0/tasks.md","reason":"task acceptance criteria"}
+{"file":".rpi-outfile/product/current_facts.json","reason":"promoted product facts when present"}
+{"file":".rpi-outfile/product/capabilities.json","reason":"capability boundary and dependency registry when present"}
+{"file":".rpi-outfile/product/invariants.json","reason":"product and engineering invariants when present"}
+{"file":".rpi-outfile/state/changes/latest.json","reason":"latest proposed change and decision status when relevant"}
 {"file":".rpi-outfile/specs/phases/m0.md","reason":"phase-specific guardrails"}

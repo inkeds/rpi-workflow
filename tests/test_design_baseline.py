@@ -41,6 +41,32 @@ class DesignBaselineTests(unittest.TestCase):
                 self.assertIn(marker, ux)
         self.assertNotIn("字段 ≤ 8 个", ux)
 
+    def test_runtime_guidance_does_not_force_every_code_change_into_spec(self) -> None:
+        claude = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+        runtime = (ROOT / ".claude/workflow/config/runtime.example.md").read_text(encoding="utf-8")
+        foundation = (ROOT / ".claude/rules/00-foundation.md").read_text(encoding="utf-8")
+        self.assertNotIn("代码变更后必须回写 spec", claude)
+        self.assertIn("局部修复", claude)
+        self.assertIn("局部修复", runtime)
+        for command in ["change", "governance", "reconcile"]:
+            self.assertIn(command, foundation)
+
+    def test_quickstart_and_context_routes_cover_change_governance(self) -> None:
+        quickstart = (ROOT / "QUICKSTART.md").read_text(encoding="utf-8")
+        implement = (ROOT / ".claude/workflow/context/implement.jsonl").read_text(encoding="utf-8")
+        check = (ROOT / ".claude/workflow/context/check.jsonl").read_text(encoding="utf-8")
+        for marker in ["governance build", "change analyze", "reconcile run"]:
+            self.assertIn(marker, quickstart)
+        self.assertIn("capabilities.json", implement)
+        self.assertIn("invariants.json", implement)
+        self.assertIn("reconciliation/latest.json", check)
+
+    def test_l1_guidance_keeps_distinct_governance_authorities(self) -> None:
+        guide = (ROOT / ".rpi-blueprint/specs/l1/README.md").read_text(encoding="utf-8")
+        self.assertNotIn("AI 只认 spec", guide)
+        for marker in ["Capability", "Invariant", "Change/Decision"]:
+            self.assertIn(marker, guide)
+
 
 if __name__ == "__main__":
     unittest.main()

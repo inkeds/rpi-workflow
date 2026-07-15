@@ -10,6 +10,7 @@
 2. 再确认 `.rpi-outfile/specs/l0/mvp-skeleton.md`
 3. 用户确认方向 + 核心功能 + Won't 后，才允许 `/rpi-spec expand`
 4. 未确认前，禁止进入 `/rpi-task start` 的真实实现任务
+5. 识别候选 Capability、业务 Invariant，以及涉及所有权、授权、计费、隐私或产品模型的 DEC 候选
 
 ## 验证点
 
@@ -17,6 +18,7 @@
 - M0 Must（1-3）已明确
 - M0 Won't（>=3）已明确
 - 成功指标（2-4）已明确
+- 候选 Capability/Invariant 已记录，高影响待决问题未被静默假设
 
 ## 多模块项目强制骨架阶段
 

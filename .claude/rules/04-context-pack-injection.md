@@ -14,6 +14,7 @@
 3. `rpi.sh task start` 必须将 `spec_refs + context manifest` 合并为 `context_refs`。
 4. `UserPromptSubmit` 注入时必须展示 `context_refs` 预览。
 5. 阶段动作推进必须写入 `phase_state`，便于追溯“规范缺失 vs 执行偏差”。
+6. 功能任务还应按存在性读取当前 Facts、Capability/Invariant Registry、关联 Change 和最新 Reconciliation；Adapter 清单本身不保存这些事实。
 
 ## 回放要求
 
@@ -22,3 +23,5 @@
 1. 当时注入了哪些上下文文件（`context_refs`）？
 2. 哪个阶段动作执行失败（`phase_state.current_action`）？
 3. 失败发生在 `verify` 还是 `gate`？
+4. 哪些 `change_refs` 和 Decision 约束了任务？
+5. 关闭前 reconciliation 使用了哪些设计、测试执行和迁移证据？
