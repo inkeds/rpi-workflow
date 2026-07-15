@@ -70,7 +70,18 @@ class DesignBaselineTests(unittest.TestCase):
         guide = (ROOT / ".rpi-blueprint/specs/l1/README.md").read_text(encoding="utf-8")
         self.assertNotIn("AI 只认 spec", guide)
         for marker in ["Capability", "Invariant", "Change/Decision"]:
-            self.assertIn(marker, guide)
+                self.assertIn(marker, guide)
+
+    def test_rpi_and_standalone_keep_conceptual_parity_without_implementation_claims(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        prd = (ROOT / "prd.md").read_text(encoding="utf-8")
+        commands = (ROOT / "COMMANDS.md").read_text(encoding="utf-8")
+        standalone = (ROOT / "standalone/AI项目初始化与持续迭代协议.md").read_text(encoding="utf-8")
+        self.assertIn("概念兼容", readme)
+        self.assertIn("单文件协议与完整 RPI 的边界", prd)
+        self.assertIn("不是完整语义冲突的自动证明", prd)
+        self.assertIn("CNF-*", commands)
+        self.assertIn("冲突", standalone)
 
 
 if __name__ == "__main__":

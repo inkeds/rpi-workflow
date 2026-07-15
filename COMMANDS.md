@@ -90,8 +90,9 @@ bash .claude/workflow/rpi.sh reconcile status
 
 - `change analyze` 生成并保存变更影响状态；普通自然语言 Prompt Hook 会自动执行同类分析。
 - `change analyze` 同时捕获产品事实、Capability、Invariant 和阶段基线；检测到确定性冲突时生成 `CNF-*`，不会自动替用户选择。
+- `CNF-*` 是确定性冲突候选，不是完整语义矛盾的自动证明；需要用户或评审依据裁决。
 - `change resolve` 解决单个冲突；解决方案只记录裁决，不代替 Spec、注册表或迁移更新。
-- `change rebase` 在冲突和 Decision 已解决、设计已按裁决更新后刷新基线；基线过期的任务不能直接开始生产实现。
+- `change rebase` 在冲突和 Decision 已解决、设计已按裁决更新后刷新基线；它不等于批准变更，也不能跳过设计更新。基线过期的任务不能直接开始生产实现。
 - 高影响变更保持 `pending_decision`。可用 `--decision` 和 `--option` 逐项确认；未确认项仍会阻断。全部确认后只进入 `spec_update_required`，不会直接获得代码实现许可。
 - `governance build` 维护能力/不变量注册表和 AGENTS.md 受管路由区块，保留用户自定义内容。
 - `governance build` 使用可恢复事务日志协调 Registry、Change、材料审计和 AGENTS；上次构建若被中断，会先回滚未提交文件快照。

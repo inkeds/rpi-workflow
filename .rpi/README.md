@@ -14,6 +14,7 @@ Runtime product facts remain under `.rpi-outfile/`; `.claude/`, `.codex/`, and
 Natural-language change governance is implemented by `core/change_intelligence.py`.
 Project-specific registries and AGENTS routing are implemented by `core/project_governance.py`.
 Change governance also captures an authority/design baseline, emits deterministic `CNF-*` conflict candidates, and requires explicit conflict resolution or rebase before production work when the authoritative baseline is stale.
+`CNF-*` is a review candidate, not an automatic semantic proof. The standalone protocol shares the same governance concepts in a dependency-free natural-language form; it does not promise RPI's hooks, gates, Schema, locks, or transactions.
 Task-close design/implementation comparison is implemented by `core/reconciliation.py`.
 Timed cross-platform locks, durable atomic writes, and recoverable bounded multi-file transactions are implemented by `core/state_store.py`.
 Dependency-free write-time Schema enforcement is implemented by `core/schema_validation.py`.
