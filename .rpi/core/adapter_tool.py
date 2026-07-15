@@ -125,8 +125,19 @@ def codex_hooks() -> dict[str, Any]:
     return hooks
 
 
+LEGACY_CODEX_CONFIG = "# Generated RPI Codex adapter. Project config loads only for trusted repositories.\n"
+
+
 def render_codex_config() -> str:
-    return """# Generated RPI Codex adapter. Project config loads only for trusted repositories.\n"""
+    return """# RPI Codex project configuration extension point.
+# Intentionally contains no model, approval, sandbox, or provider overrides.
+#
+# Lifecycle hooks: .codex/hooks.json
+# Project instructions: ../AGENTS.md
+# Reusable skills: ../.agents/skills/
+#
+# Codex loads project configuration and hooks only after the repository is trusted.
+"""
 
 
 def copy_skills_to(project_dir: Path, target: Path) -> int:
@@ -245,7 +256,7 @@ def cmd_setup(project_dir: Path) -> int:
     codex_dir = project_dir / ".codex"
     codex_dir.mkdir(parents=True, exist_ok=True)
     config_path = codex_dir / "config.toml"
-    if not config_path.exists():
+    if not config_path.exists() or config_path.read_text(encoding="utf-8", errors="ignore") == LEGACY_CODEX_CONFIG:
         config_path.write_text(render_codex_config(), encoding="utf-8")
     write_json(codex_dir / "hooks.json", codex_hooks())
     codex_skills = copy_skills_to(project_dir, project_dir / ".agents" / "skills")

@@ -904,6 +904,26 @@ class PhaseModelTests(unittest.TestCase):
 
 
 class AdapterTests(unittest.TestCase):
+    def test_codex_config_explains_intentional_project_override_boundary(self) -> None:
+        config = adapter_tool.render_codex_config()
+        self.assertIn("Intentionally contains no model", config)
+        self.assertIn(".codex/hooks.json", config)
+        self.assertIn("../AGENTS.md", config)
+
+    def test_compat_setup_upgrades_only_legacy_placeholder_config(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            (project / ".codex").mkdir()
+            config = project / ".codex/config.toml"
+            config.write_text(adapter_tool.LEGACY_CODEX_CONFIG, encoding="utf-8")
+            with contextlib.redirect_stdout(io.StringIO()):
+                adapter_tool.cmd_setup(project)
+            self.assertEqual(config.read_text(encoding="utf-8"), adapter_tool.render_codex_config())
+            config.write_text('model = "custom"\n', encoding="utf-8")
+            with contextlib.redirect_stdout(io.StringIO()):
+                adapter_tool.cmd_setup(project)
+            self.assertEqual(config.read_text(encoding="utf-8"), 'model = "custom"\n')
+
     def test_codex_hooks_cover_rpi_lifecycle(self) -> None:
         hooks = adapter_tool.codex_hooks()["hooks"]
         self.assertEqual(set(hooks), set(adapter_tool.HOOK_EVENTS))

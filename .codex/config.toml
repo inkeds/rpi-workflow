@@ -1,1 +1,8 @@
-# Generated RPI Codex adapter. Project config loads only for trusted repositories.
+# RPI Codex project configuration extension point.
+# Intentionally contains no model, approval, sandbox, or provider overrides.
+#
+# Lifecycle hooks: .codex/hooks.json
+# Project instructions: ../AGENTS.md
+# Reusable skills: ../.agents/skills/
+#
+# Codex loads project configuration and hooks only after the repository is trusted.

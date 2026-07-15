@@ -11,7 +11,7 @@ RPI shares product facts, specifications, tasks, test/eval evidence, and lifecyc
 ## Codex CLI
 
 - Project guidance: `AGENTS.md` and nested `AGENTS.md` files.
-- Project config: `.codex/config.toml` after project trust.
+- Project config extension point: `.codex/config.toml` after project trust. RPI intentionally leaves model, provider, approval, and sandbox keys unset so user-level preferences remain authoritative.
 - Skills: `.agents/skills/<name>/SKILL.md`.
 - Hooks: `.codex/hooks.json`; new or changed command hooks require review in `/hooks`.
 - Security: sandbox and approval policy remain authoritative.
