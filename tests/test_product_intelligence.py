@@ -904,6 +904,26 @@ class PhaseModelTests(unittest.TestCase):
 
 
 class AdapterTests(unittest.TestCase):
+    def test_ux_skill_fuses_design_react_and_rpi_validation_layers(self) -> None:
+        skill_dir = ROOT / ".rpi/skills/ux-compliance-checking"
+        skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+        visual = (skill_dir / "references/visual-design.md").read_text(encoding="utf-8")
+        react = (skill_dir / "references/react-performance.md").read_text(encoding="utf-8")
+        self.assertIn("product-ux | visual-design | accessibility", skill)
+        self.assertIn("references/visual-design.md", skill)
+        self.assertIn("references/react-performance.md", skill)
+        self.assertIn("9d2f1ae187231d8199c64b5b762e1bdf2244733d", visual)
+        self.assertIn("f8a72b9603728bb92a217a879b7e62e43ad76c81", react)
+        self.assertTrue((skill_dir / "references/APACHE-2.0.txt").exists())
+        self.assertTrue((skill_dir / "references/MIT.txt").exists())
+
+    def test_generated_ux_skills_match_canonical_source(self) -> None:
+        canonical = ROOT / ".rpi/skills/ux-compliance-checking"
+        for adapter in (ROOT / ".agents/skills/ux-compliance-checking", ROOT / ".claude/skills/ux-compliance-checking"):
+            canonical_files = {path.relative_to(canonical): path.read_bytes() for path in canonical.rglob("*") if path.is_file()}
+            adapter_files = {path.relative_to(adapter): path.read_bytes() for path in adapter.rglob("*") if path.is_file()}
+            self.assertEqual(adapter_files, canonical_files)
+
     def test_codex_config_explains_intentional_project_override_boundary(self) -> None:
         config = adapter_tool.render_codex_config()
         self.assertIn("Intentionally contains no model", config)

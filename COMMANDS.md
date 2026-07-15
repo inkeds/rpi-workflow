@@ -376,6 +376,8 @@ bash .claude/workflow/rpi.sh init bootstrap [--force] [idea] [platform]
 /rpi-check ux [--quiet]
 ```
 
+`ux` 命令执行可机械检查的最低门禁（UX Spec、危险交互、提交状态和标杆模块）。`ux-compliance-checking` Skill 进一步覆盖有依据的视觉方向、完整交互状态、响应式、可访问性、真实界面验证，以及 React/Next.js 请求瀑布、Bundle、Server/Client 边界和重渲染性能；不能运行界面时必须标记为静态审查。
+
 参数：
 
 | 参数 | 含义 |
