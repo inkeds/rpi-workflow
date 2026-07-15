@@ -8,6 +8,8 @@
 
 ## Facts / Assumptions / Open Questions
 
+> 用户输入先作为素材与 Claim 保存；只有经证据验证并晋升的内容才进入 Facts。
+
 ### Facts
 1.
 
@@ -71,13 +73,15 @@
   - C1 [Core]：
   - C2 [Supporting]：
 - 业务不变量（Domain Invariants）：
-  - R1：
-  - R2：
-  - R3：
+  - INV-候选-1：
+  - INV-候选-2：
+  - INV-候选-3：
 - 已选上下文（M0）：
   - C1 [Core]
 
 ## 结论
+- 关联 Capability 候选：
+- 需要独立决策的事项（DEC 候选）：
 - 选择方向：
 - 覆盖率目标：
 - 优先级调权（可选）：

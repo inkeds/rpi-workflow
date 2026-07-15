@@ -5460,9 +5460,9 @@ def cmd_create_mvp(paths: Paths, argv: Sequence[str]) -> int:
             ux_spec.write_bytes(tpl.read_bytes())
             safe_print("[OK] 已自动生成 UX 规范骨架：.rpi-outfile/specs/l0/ux-spec.md")
             safe_print("[INFO] 请补全以下内容：")
-            safe_print("   - UI 组件库名称和版本")
-            safe_print("   - 自定义组件清单")
-            safe_print("   - 标杆页面参考")
+            safe_print("   - 核心用户任务、视觉方向和组件复用边界")
+            safe_print("   - 加载/空/错/权限/恢复状态与可访问性要求")
+            safe_print("   - 性能预算、标杆页面和验收证据")
         if (
             not (l0_dir / "module-linkage.md").is_file()
             or not (l0_dir / "ux-flow.md").is_file()

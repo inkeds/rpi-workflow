@@ -1,5 +1,11 @@
 # L0 Epic
 
+## 治理关联
+- 来源 Claim / Facts：
+- 目标 Capability：
+- 适用 Invariant：
+- 待解决 Decision：
+
 ## Facts / Assumptions / Open Questions
 
 ### Facts

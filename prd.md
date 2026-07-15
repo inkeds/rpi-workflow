@@ -33,6 +33,9 @@ RPI Workflow 是一个面向普通创意者、同时兼容 Claude Code 与 Codex
 |------|----------|----------|
 | AI 发散 | 同需求多次生成差异大 | Vibe-Spec + RPI + 架构约束 |
 | 规范漂移 | 代码偏离 Spec 且无人感知 | spec-state + spec-link + anti-entropy |
+| 变更失真 | 自然语言功能修改直接进入代码，设计、能力边界和不变量未同步 | Change Intelligence + Decision + Capability/Invariant Registry |
+| 实现反向定义产品 | 已写代码被直接补进 Spec，掩盖越界行为 | design/implementation reconciliation + fail-closed close |
+| 多 Agent 写入冲突 | 并发更新状态造成覆盖、半写入或历史断裂 | 项目锁 + 原子写入 + 可恢复事务 |
 | 决策黑箱 | 失败后无法定位根因 | events/gates/task-archive + root cause |
 | 风险不可控 | 高危命令或改动未受管控 | risk matrix + pre-tool guard |
 | 长周期失真 | 迭代越久越偏离最初目标 | 周期性反熵 + 评测回归 |
@@ -144,12 +147,16 @@ DDD-Lite 只保留三项高价值能力：
 2. 长周期可稳定：迭代后仍保持 Spec/代码一致性
 3. 自动化可控：支持提效，不牺牲工程边界
 4. 合规可审计：能导出完整证据链
+5. 变更可治理：功能修改先分析影响，必要决策解决后再进入正式实现
+6. 设计可持续：Capability、Invariant、Spec、任务与实现能持续对账
 
 ### 4.2 非目标
 
 1. 不追求无约束的全自动编码
 2. 不替代团队架构设计职责
 3. 不绕过质量门控直接交付
+4. 不把平台适配目录或 Agent 私有记忆提升为项目事实源
+5. 不把所有局部修复都升级为产品设计变更
 
 ## 5. 核心能力设计（完整强化版）
 
@@ -259,6 +266,12 @@ DDD-Lite 只保留三项高价值能力：
 - 审计闭环：`/rpi-observe audit-pack`、`/rpi-observe audit-report`
 - 受控自治：`/rpi-auto run`、`/rpi-auto review`、`/rpi-auto memory`、`/rpi-task pause`、`/rpi-task resume`、`/rpi-task abort`
 - 产物质量度量：`/rpi-check doctor` 输出 artifact quality score（completeness/semantic/traceability）
+- 变更治理：`change analyze|confirm|status`，并以独立 `CHG-*`、`DEC-*` 保存影响与决策证据
+- 项目治理：`governance build|verify|migrate`，维护 Capability/Invariant Registry 与项目 AGENTS 路由
+- 能力演进：`governance capability list|merge|split`，显式维护能力边界及历史引用
+- 设计对账：`reconcile run|status`，在任务关闭前核对设计、代码、测试执行与迁移
+- 状态可靠性：Schema 校验、幂等迁移、项目级锁、原子写入、可恢复事务和增量项目索引
+- Skills 执行层：平台无关 canonical Skills，并同步到 Claude/Codex/Agents 适配面
 
 规划中能力：
 
@@ -311,16 +324,54 @@ DDD-Lite 只保留三项高价值能力：
   - `.rpi-outfile/state/agent-review/review_card.latest.json`
 - 目标：即使外部工具不运行 Claude Hooks，也能按同一流程、边界和证据模板执行。
 
+### 5.16 Change Intelligence 与独立决策
+
+- 自然语言功能请求首先是候选变更，不自动成为当前需求。
+- 每项变更使用独立 `CHG-*` 记录范围、影响、关联任务、能力和待决问题。
+- 产品模型、所有权、授权、计费、隐私或不变量变化使用独立 `DEC-*`；每项决策单独确认并保存选项、结果与依据。
+- 变更只约束显式关联的任务，讨论无关需求不会冻结正在执行的任务。
+- 未解决的高影响决策必须阻止生产实现，而不是由 Agent 静默猜测。
+
+### 5.17 Capability / Invariant Registry 与项目治理
+
+- `.rpi-outfile/product/capabilities.json` 维护稳定能力身份、状态、来源与依赖关系。
+- `.rpi-outfile/product/invariants.json` 维护跨功能必须持续成立的产品和工程不变量。
+- Capability 支持有证据的 merge/split；旧身份保留为 `retired`，历史引用不会被删除。
+- `governance build` 基于项目真实材料维护 AGENTS 受管路由区块，保留用户自定义内容。
+- `.rpi/` 保存平台无关定义；`.claude/`、`.codex/`、`.agents/` 仅是适配面；共享事实与运行状态位于 `.rpi-outfile/`。
+
+### 5.18 设计与实现对账
+
+- 功能性修改必须在任务关闭前执行 reconciliation。
+- 对账覆盖任务关联的全部 Change、Spec、Capability、Invariant，以及代码、测试执行和迁移证据。
+- 局部修复仅更新任务证据与测试；只有行为或契约变化才更新设计。
+- 未声明的高风险实现、缺失的设计更新或未解决决策必须失败闭锁；不得通过反向修改 Spec 将越界实现合理化。
+
+### 5.19 状态安全、Schema 与增量索引
+
+- Change、Decision、Capability、Invariant、Reconciliation 状态均执行 Schema 校验。
+- `governance migrate` 对旧状态做幂等迁移；损坏 JSON 失败闭锁，未来版本 Schema 保留并跳过。
+- 多 Agent 写操作使用项目级锁、原子替换和事务日志；中断后从快照恢复未提交文件。
+- 项目材料审计使用增量索引复用未变化文件，损坏缓存自动重建，并排除符号链接和超大候选文件。
+
+### 5.20 Skills 执行架构
+
+- `.rpi/skills/` 是 canonical Skills 定义，平台适配目录保持同步但不是事实源。
+- 生命周期 Skills 覆盖探索、规划、实现、验证、调试和代码审查；UX Skill 同时约束产品体验、视觉表达、可访问性和 React 性能。
+- Skills 提供执行方法与检查清单，不替代 Spec、Capability、Invariant 或任务证据。
+
 ## 6. 生命周期流程（学习视角）
 
 标准路径：
 
 1. 初始化：`/rpi-check env` → `/rpi-init` → `/rpi-init deepen` → `/rpi-spec expand`
-2. 健康检查：`/rpi-check doctor`
-3. 启动任务：`/rpi-task start <task>`
-4. 执行实现：R → P → I（TDD）
-5. 质量门控：`/rpi-gates run <phase>`
-6. 关闭归档：`/rpi-task close pass|fail auto <note>`
+2. 治理建模：`governance build` → `governance verify`
+3. 变更分析：自然语言请求 → `change analyze` → 必要时逐项解决 `DEC-*`
+4. 规范更新与任务启动：更新 Spec/Capability/Invariant → `/rpi-task start <task>`
+5. 执行实现：R → P → I（TDD）
+6. 质量门控：`/rpi-gates run <phase>`
+7. 设计对账：`reconcile run --task <task>`
+8. 关闭归档：`/rpi-task close pass|fail auto <note>`
 
 初始化前后边界：
 
@@ -338,7 +389,7 @@ DDD-Lite 只保留三项高价值能力：
 
 ## 7. 命令体系（学习索引）
 
-### 7.1 主命令面（压缩后仅 8 个入口）
+### 7.1 主命令面（11 个命令组）
 
 - `/rpi-init`：初始化与范围深化（setup/deepen/bootstrap）
 - `/rpi-task`：任务生命周期（start/pause/resume/abort/close/phase/status）
@@ -348,6 +399,9 @@ DDD-Lite 只保留三项高价值能力：
 - `/rpi-mode`：运行模式（show/harness/profile/on/off/profile-name）
 - `/rpi-observe`：观测与审计（logs/trace/evals/audit-pack/audit-report/recover）
 - `/rpi-auto`：自动化（run/review/memory/entropy）
+- `change`：自然语言变更分析、决策确认与状态查询
+- `governance`：项目治理构建、校验、迁移及 Capability 演进
+- `reconcile`：设计与实现对账及状态查询
 
 ### 7.2 学习顺序（建议）
 
@@ -367,6 +421,9 @@ DDD-Lite 只保留三项高价值能力：
 - Spec 状态链路：`/rpi-spec build|verify|sync|link|expand`
 - 自治与反熵：`/rpi-auto run|review|memory|entropy`
 - 审计观测：`/rpi-observe logs|trace|evals|audit-pack|audit-report|recover`
+- 变更治理：`change analyze|confirm|status`
+- 项目治理：`governance build|verify|migrate|capability`
+- 设计对账：`reconcile run|status`
 
 ## 8. 配置体系
 
@@ -414,6 +471,13 @@ DDD-Lite 只保留三项高价值能力：
 - `.rpi-outfile/state/context/task_capsule.json`
 - `.rpi-outfile/state/portable/contract.latest.json`
 - `.rpi-outfile/state/portable/evidence_template.json`
+- `.rpi-outfile/state/changes/`（`CHG-*` 与 latest 状态）
+- `.rpi-outfile/state/reconciliation/`
+- `.rpi-outfile/state/migrations/`
+- `.rpi-outfile/state/index/`
+- `.rpi-outfile/state/transactions/`
+- `.rpi-outfile/product/capabilities.json`
+- `.rpi-outfile/product/invariants.json`
 
 ### 9.2 关键日志
 
@@ -473,6 +537,10 @@ DDD-Lite 只保留三项高价值能力：
 | 根因可追溯率 | 100%（close 有分类） |
 | 高风险动作可控率 | 100%（走风险矩阵策略） |
 | 审计证据完整率 | 100%（可导出任务证据链） |
+| 功能变更分析覆盖率 | 100%（生产功能修改有 `CHG-*`） |
+| 高影响决策解决率 | 100%（进入实现前无阻断中的 `DEC-*`） |
+| 设计实现对账率 | 100%（功能任务 Pass 前 reconciliation 通过） |
+| 治理状态 Schema 有效率 | 100%（正式状态通过当前 Schema 或被安全迁移） |
 
 ## 12. 演进方向
 
@@ -480,3 +548,4 @@ DDD-Lite 只保留三项高价值能力：
 - 丰富架构规则类型与自动修复策略
 - 增强运行时信号驱动的动态门控
 - 持续提升评测集覆盖与回归能力
+- 扩展 Capability/Invariant 的可视化依赖分析，但不引入第二事实源
