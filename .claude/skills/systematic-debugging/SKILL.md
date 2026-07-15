@@ -5,7 +5,7 @@ description: 系统化诊断 Bug、测试失败、构建错误、性能回归和
 
 # 系统化调试
 
-本 Skill 改编自 `obra/superpowers` 的 systematic-debugging 与 test-driven-development，固定参考版本 `d884ae04edebef577e82ff7c4e143debd0bbec99`，并改写为 RPI 的 Task、Spec、Change 和 Evidence 流程。许可证见 [references/MIT.txt](references/MIT.txt)。
+把调试作为证据驱动的 RPI 流程：先复现和定位根因，再建立失败证据、实施最小修复并完成 Task、Spec、Change/Conflict 和 Reconciliation 对账。
 
 ## 规则
 
