@@ -5,7 +5,7 @@ depend on Claude Code or Codex-specific hook payloads.
 
 - `core/`: product intelligence and shared orchestration.
 - `schemas/`: portable claims, change impacts, per-decision records, capabilities, invariants, reconciliation, evidence, task, and hook contracts.
-- `skills/`: canonical skill sources used to generate `.agents/skills` and `.claude/skills` adapters.
+- `skills/`: canonical skill sources used to generate `.agents/skills` and `.claude/skills` adapters, including task lifecycle, quality gates, UX/frontend quality, systematic debugging, and code review.
 - `adapters/`: platform-specific renderers and payload translation.
 
 Runtime product facts remain under `.rpi-outfile/`; `.claude/`, `.codex/`, and

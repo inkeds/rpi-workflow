@@ -790,6 +790,8 @@ bash .claude/workflow/rpi.sh init bootstrap [--force] [idea] [platform]
 /rpi-auto review [--base <ref>] [--head <ref>] [--auto-merge] [--quiet] [--json]
 ```
 
+`code-reviewing` Skill 在此命令之上补充评审准备、Blocking/Important/Minor 分级、意见真实性验证、逐项修复复验和任务关闭裁决。Bug、测试失败或评审发现原因不清楚时，先使用 `systematic-debugging`，不要直接叠加猜测性修复。
+
 参数：
 
 | 参数 | 含义 | 默认值 |

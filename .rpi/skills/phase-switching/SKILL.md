@@ -1,16 +1,33 @@
 ---
 name: phase-switching
-description: Switch project phase between M-1 Explore, M0 Validate, M1 Stabilize, and M2 Operate with explicit reason and updated injection context.
+description: 在 M-1 Explore、M0 Validate、M1 Stabilize 和 M2 Operate 之间切换项目阶段。用于证据表明成熟度目标变化、阶段退出条件满足、回归需要降级，或高风险运营要求进入下一阶段时。
 ---
 
-# Phase Switching
+# 切换项目阶段
 
-1. 明确切换原因（例如：回归失败、多人冲突、高风险能力引入）。
-2. 执行切换：
+Phase 表示当前证据和风险治理水平，不是时间进度或完成百分比。
+
+## 1. 判断方向
+
+- 升级：当前阶段用户结果和退出门禁已有新鲜证据，下一阶段目标明确。
+- 降级：核心假设失效、重大回归、多人冲突、架构失配或高风险能力使现有证据不再可信。
+- 保持：只是增加普通功能、修复局部缺陷或希望“看起来有进展”。
+
+没有证据时不切换。
+
+## 2. 记录影响
+
+说明原因、支持证据、失效证据、新阶段目标、门禁变化、现有 Task 如何处理，以及是否需要暂停或重开任务。
+
+## 3. 执行
 
 ```bash
 bash .claude/workflow/rpi.sh task phase <M-1|M0|M1|M2> "<reason>"
 ```
 
-3. 检查阶段文件：`.rpi-outfile/state/project_phase.json`
-4. 新阶段下重新检查任务验收与门控要求。
+## 4. 验证
+
+- 检查 `.rpi-outfile/state/project_phase.json`。
+- 预览并运行新阶段适用的 Gates。
+- 重新检查当前 Task 的验收、风险和上下文注入。
+- 阶段降级时保留原证据和原因，不删除历史来制造连续通过。

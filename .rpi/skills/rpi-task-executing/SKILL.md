@@ -1,14 +1,44 @@
 ---
 name: rpi-task-executing
-description: Execute implementation under RPI with TDD and evidence capture. Use when actively writing tests/code for a task and you need deterministic execution with traceable logs.
+description: 在活动 RPI Task 中按测试驱动方式实现并保存证据。用于编写功能、修复缺陷、重构行为或执行已有计划；遇到测试失败、构建异常或行为不符时切换到 systematic-debugging Skill。
 ---
 
-# RPI Task Executing
+# 执行 RPI Task
 
-1. 先执行至少 1 条“可定位测试范围”的失败测试命令形成 Red 证据，再写实现代码（Red -> Green -> Refactor）。
-2. 每次关键实现前，确认当前阶段注入清单（M-1/M0/M1/M2）。M-1 实验代码不得直接晋升为正式实现。
-3. 仅修改当前任务范围内文件，避免跨模块扩散。
-4. 每次工具执行后检查日志：
-   - `.rpi-outfile/logs/events.jsonl`
-   - `.rpi-outfile/logs/gate-results.jsonl`
-5. 若出现偏差，先归类是规范缺失还是执行偏差，再继续。
+## 1. 重新确认边界
+
+开始每个实现切片前读取当前 Task、Spec、Change、Invariant 和相关测试。只修改当前用户结果需要的文件；发现新的产品边界或高影响决策时暂停实现，回到变更分析。
+
+## 2. Red → Green → Refactor
+
+对功能、Bug 和行为重构执行：
+
+1. 写一个描述用户可观察行为的最小测试。
+2. 运行精确测试命令，确认它因缺少目标行为而失败，而不是语法、环境或夹具错误。
+3. 保存 Red 命令、退出码和关键失败信息。
+4. 写使该测试通过的最小实现，不顺带扩展功能。
+5. 重新运行目标测试并确认 Green。
+6. 运行相关回归范围；保持 Green 后再重构。
+
+无法先自动化测试的探索或遗留场景，先记录原因并建立最小可重复脚本或手工验证步骤，不能把“测试以后补”当作完成证据。
+
+## 3. 一次只验证一个假设
+
+测试、构建或运行行为异常时，使用 `systematic-debugging`：先复现、收集边界证据和形成单一根因假设，再修改。不要叠加多个猜测性修复。
+
+## 4. 保持实现与设计同步
+
+- 局部实现细节只更新测试和任务证据。
+- 用户流程、接口合同、状态、权限或失败语义改变时更新当前 Spec。
+- 产品模式或不变量改变时先产生 Decision，不用实现反向定义产品事实。
+- M-1 实验结果必须经过选择和 Spec 更新才能进入正式实现。
+
+## 5. 检查证据
+
+关键步骤后检查：
+
+- `.rpi-outfile/logs/events.jsonl`
+- `.rpi-outfile/logs/gate-results.jsonl`
+- 当前 Task 的 TDD、测试执行和修改路径记录
+
+报告实际执行的命令和结果，不把测试文件存在、静态阅读或旧日志当作本轮验证。

@@ -904,6 +904,29 @@ class PhaseModelTests(unittest.TestCase):
 
 
 class AdapterTests(unittest.TestCase):
+    def test_all_generated_skill_trees_match_canonical_sources(self) -> None:
+        canonical_root = ROOT / ".rpi/skills"
+        canonical_names = {path.name for path in canonical_root.iterdir() if path.is_dir()}
+        for adapter_root in (ROOT / ".agents/skills", ROOT / ".claude/skills"):
+            self.assertEqual({path.name for path in adapter_root.iterdir() if path.is_dir()}, canonical_names)
+            for name in canonical_names:
+                canonical = canonical_root / name
+                adapter = adapter_root / name
+                canonical_files = {path.relative_to(canonical): path.read_bytes() for path in canonical.rglob("*") if path.is_file()}
+                adapter_files = {path.relative_to(adapter): path.read_bytes() for path in adapter.rglob("*") if path.is_file()}
+                self.assertEqual(adapter_files, canonical_files, name)
+
+    def test_debugging_and_review_skills_preserve_source_and_rpi_boundaries(self) -> None:
+        debugging = (ROOT / ".rpi/skills/systematic-debugging/SKILL.md").read_text(encoding="utf-8")
+        review = (ROOT / ".rpi/skills/code-reviewing/SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("d884ae04edebef577e82ff7c4e143debd0bbec99", debugging)
+        self.assertIn("根因", debugging)
+        self.assertIn("Change/Decision/Spec", debugging)
+        self.assertIn("auto review", review)
+        self.assertIn("manual_review_required", review)
+        self.assertTrue((ROOT / ".rpi/skills/systematic-debugging/references/MIT.txt").exists())
+        self.assertTrue((ROOT / ".rpi/skills/code-reviewing/references/MIT.txt").exists())
+
     def test_ux_skill_fuses_design_react_and_rpi_validation_layers(self) -> None:
         skill_dir = ROOT / ".rpi/skills/ux-compliance-checking"
         skill = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
