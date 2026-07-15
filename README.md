@@ -9,7 +9,7 @@
 [![Codex CLI](https://img.shields.io/badge/Codex_CLI-compatible-111111)](COMPATIBILITY.md)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-compatible-D97757)](COMPATIBILITY.md)
 
-[快速开始](QUICKSTART.md) · [单文件启动](standalone/AI项目初始化与持续迭代协议.md) · [命令手册](COMMANDS.md) · [兼容说明](COMPATIBILITY.md) · [产品设计](prd.md)
+[快速开始](QUICKSTART.md) · [单文件启动](standalone/README.md) · [命令手册](COMMANDS.md) · [兼容说明](COMPATIBILITY.md) · [产品设计](prd.md)
 
 </div>
 
@@ -38,33 +38,9 @@ RPI Workflow 是一个面向普通创意者的 AI 产品定义与可靠交付框
 
 RPI Core 与具体 Agent 解耦。目前为 **Codex CLI** 和 **Claude Code CLI** 提供适配层，两端共享同一份产品事实、Spec、任务状态和交付证据。
 
-### 单文件快速启动支线
+### 更简单的单文件启动
 
-对于暂不安装完整 Workflow 的用户，可直接下载 [AI项目初始化与持续迭代协议.md](standalone/AI项目初始化与持续迭代协议.md)：将这一个 Markdown 放入项目根目录，即可引导 Agent 完成材料审计、关键决策、V1 边界、AGENTS 规则和后续功能变更协议。初始化完成后，项目依靠自身 AGENTS、设计文档、代码和测试继续演进，不依赖原始聊天或该协议文件持续存在。
-
-下载后可以直接对 Agent 说：
-
-```text
-请完整阅读《AI项目初始化与持续迭代协议.md》，执行“项目初始化协议”。
-需求和参考材料位于：docs/requirements/
-请先完成审计和设计；遇到 P0 决策时先询问我，不要直接写代码。
-```
-
-如果只想让 AI 阅读材料并给出设计方案，不修改仓库：
-
-```text
-请完整阅读《AI项目初始化与持续迭代协议.md》，使用 audit-only 模式。
-阅读 README.md、prd.md 和现有代码，分析真实诉求、冲突、V1 边界和推荐设计，不要修改文件。
-```
-
-初始化完成后增加功能，不需要再次加载整份协议：
-
-```text
-请按照仓库 AGENTS.md 中的“功能变更协议”处理：
-为当前产品增加批量导出功能，先完成影响分析和 Spec，再实现并验证。
-```
-
-单文件版与 RPI 共享“区分事实与推断、变更先分析、设计实现对账、防止静默漂移”的原则，但两者保持独立交付：单文件版不模拟 RPI 的文件锁、事务、Schema、Hook、CLI 和 Eval；需要长期多 Agent 协作、自动门禁和可恢复状态治理时，应使用完整 RPI Workflow。
+暂时不想安装完整 Workflow？只需下载一个 Markdown，即可让 Agent 完成项目审计、设计初始化和后续迭代规则配置。[查看单文件快速启动 →](standalone/README.md)
 
 ## 为什么需要它？
 
